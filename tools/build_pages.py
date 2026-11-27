@@ -197,10 +197,10 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
   <section class="box">
     <h2>Connected Pylon Server</h2>
     <form id="server-form" class="row">
-      <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8771" required>
+      <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
       <button type="submit">Connect &amp; Save</button>
       <button type="button" class="secondary" id="preset-vm">VM</button>
-      <button type="button" class="secondary" id="preset-local">Local (127.0.0.1:8771)</button>
+      <button type="button" class="secondary" id="preset-local">Local (127.0.0.1:8910)</button>
     </form>
     <div id="server-status" class="status">Checking server...</div>
   </section>
@@ -334,7 +334,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       connectServer(DEFAULT_SERVER);
     }});
     document.getElementById('preset-local').addEventListener('click', () => {{
-      const localOrigin = 'http://127.0.0.1:8771';
+      const localOrigin = 'http://127.0.0.1:8910';
       try {{ localStorage.setItem(STORAGE_KEY, localOrigin); }} catch (_) {{}}
       connectServer(localOrigin);
     }});
