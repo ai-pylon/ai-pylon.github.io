@@ -692,13 +692,17 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       let apps = [];
       try {{
         const catRes = await fetch(catalogUrl);
+        if (!catRes.ok) throw new Error('HTTP ' + catRes.status);
         const cat = await catRes.json();
-        apps = cat.apps || [];
+        if (!Array.isArray(cat.apps)) throw new Error('Invalid catalog payload');
+        apps = cat.apps;
       }} catch (_) {{
         try {{
           const fbRes = await fetch(BASE + '/catalogs/catalog.json');
-          const fb = await fbRes.json();
-          apps = fb.apps || [];
+          if (fbRes.ok) {{
+            const fb = await fbRes.json();
+            apps = Array.isArray(fb.apps) ? fb.apps : [];
+          }}
         }} catch (_) {{}}
       }}
 
