@@ -236,6 +236,7 @@ class TrayHost:
                 items.append(pystray.Menu.SEPARATOR)
                 items.extend(self._render_items(self._dyn_items))
         items.append(pystray.Menu.SEPARATOR)
+        items.append(pystray.MenuItem("Restart", self._click(self._restart)))
         items.append(pystray.MenuItem("Quit", self._quit))
         return pystray.Menu(*items)
 
@@ -438,6 +439,48 @@ class TrayHost:
             self._icon.stop()
         except Exception:  # noqa: BLE001
             pass
+
+    def _restart(self, *_a):
+        import subprocess
+        self._stop_pane()
+        self._stop_icon_only()
+        raw_pid = (os.environ.get("PYLON2_DAEMON_PID") or "").strip()
+        dpid = int(raw_pid) if raw_pid.isdigit() else 0
+        restart_cmd = (os.environ.get("PYLON2_RESTART_CMD") or "").strip()
+        restart_script = (os.environ.get("PYLON2_RESTART_SCRIPT") or "").strip()
+        restart_cwd = (os.environ.get("PYLON2_RESTART_CWD") or os.getcwd()).strip()
+        flags = (
+            getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            | getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        )
+        kill_part = f"taskkill /F /T /PID {dpid} >nul 2>&1 & " if (dpid and dpid != os.getpid()) else ""
+        if restart_cmd and os.path.isfile(restart_cmd):
+            launch_part = f'call "{restart_cmd}"'
+            cwd = os.path.dirname(restart_cmd) or restart_cwd
+        elif restart_script and os.path.isfile(restart_script):
+            py = sys.executable or "python"
+            pyw = py.lower().replace("python.exe", "pythonw.exe")
+            if pyw.endswith("pythonw.exe") and os.path.isfile(pyw):
+                py = pyw
+            launch_part = f'start "" /b "{py}" "{restart_script}"'
+            cwd = restart_cwd
+        else:
+            launch_part = ""
+            cwd = restart_cwd
+        cmd_str = f"{kill_part}ping -n 2 127.0.0.1 >nul & {launch_part}" if launch_part else kill_part.rstrip(" &")
+        if cmd_str:
+            try:
+                subprocess.Popen(
+                    ["cmd.exe", "/c", cmd_str],
+                    cwd=cwd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=flags,
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
     def _quit(self, *_a):
         self._stop_icon_only()

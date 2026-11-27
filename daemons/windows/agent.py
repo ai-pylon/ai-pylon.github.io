@@ -479,6 +479,8 @@ async def main():
     url, headers, server = serve_mode.setup(cfg, serve_mode.DEFAULT_CENTRAL_WS_URL,
                                             log=lambda m: print(m, flush=True))
     os.environ["PYLON2_DAEMON_PID"] = str(os.getpid())
+    os.environ.setdefault("PYLON2_RESTART_SCRIPT", os.path.abspath(__file__))
+    os.environ.setdefault("PYLON2_RESTART_CWD", os.getcwd())
     if server:
         os.environ["PYLON2_FRAMEWORK_HTTP"] = server.http_url
         os.environ.setdefault("PYLON2_TRAY_NAME", "pylon-server")
