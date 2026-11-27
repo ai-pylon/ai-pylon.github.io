@@ -352,13 +352,39 @@ class DaemonStatusServer:
             def log_message(self, fmt: str, *args: Any) -> None:
                 return
 
+            def _cors_origin(self) -> str:
+                origin = (self.headers.get("Origin") or "").strip().rstrip("/")
+                if not origin:
+                    return ""
+                allowed_raw = os.environ.get("PYLON_STATIC_CLIENT_ORIGINS", "https://ai-pylon.github.io")
+                allowed = {x.strip().rstrip("/") for x in allowed_raw.split(",") if x.strip()}
+                return origin if origin in allowed else ""
+
             def _send(self, status: int, content_type: str, body: bytes) -> None:
+                cors_origin = self._cors_origin()
                 self.send_response(status)
                 self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Cache-Control", "no-store")
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                    self.send_header("Vary", "Origin")
                 self.end_headers()
                 self.wfile.write(body)
+
+            def do_OPTIONS(self) -> None:
+                cors_origin = self._cors_origin()
+                self.send_response(204)
+                if cors_origin:
+                    self.send_header("Access-Control-Allow-Origin", cors_origin)
+                    self.send_header("Vary", "Origin")
+                    self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                    self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                    self.send_header("Access-Control-Max-Age", "600")
+                    if (self.headers.get("Access-Control-Request-Private-Network") or "").strip().lower() == "true":
+                        self.send_header("Access-Control-Allow-Private-Network", "true")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
             def do_GET(self) -> None:
                 path = self.path.split("?", 1)[0]

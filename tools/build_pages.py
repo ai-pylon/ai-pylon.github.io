@@ -253,11 +253,19 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     .sb-foot {{
       border-top: 1px solid var(--border); padding: 8px 12px; font-size: 0.78rem; color: var(--muted);
     }}
-    .sb-foot details summary {{ cursor: pointer; font-weight: 600; color: var(--text); }}
+    .sb-foot details summary {{
+      cursor: pointer; font-weight: 600; color: var(--text);
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; list-style: none;
+    }}
+    .sb-foot details summary::-webkit-details-marker {{ display: none; }}
+    .daemon-sum-left {{ display: flex; align-items: center; gap: 6px; }}
+    .daemon-sum-right {{ display: flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 500; color: var(--muted); }}
+    .daemon-sum-right.ok {{ color: var(--ok); }}
+    .daemon-sum-right.warn {{ color: var(--warn); }}
+    .daemon-meta {{ margin-top: 6px; font-size: 0.74rem; color: var(--muted); }}
+    .daemon-meta a {{ color: var(--accent); text-decoration: none; }}
+    .daemon-meta a:hover {{ text-decoration: underline; }}
     .sb-foot code {{ display: block; background: var(--bg); border: 1px solid var(--border); padding: 5px 7px; border-radius: 6px; margin-top: 5px; font-size: 0.74rem; word-break: break-all; color: var(--text); }}
-    .sb-links {{ display: flex; gap: 10px; margin-top: 6px; }}
-    .sb-links a {{ color: var(--muted); text-decoration: none; }}
-    .sb-links a:hover {{ color: var(--accent); text-decoration: underline; }}
 
     .main {{ flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }}
     .topbar {{
@@ -312,14 +320,14 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
       <div class="sb-foot">
         <details>
-          <summary>Daemon Client Install</summary>
+          <summary>
+            <span class="daemon-sum-left"><span class="chev">▸</span>Daemon Client</span>
+            <span id="daemon-status-badge" class="daemon-sum-right"><span id="daemon-dot" class="dot"></span><span id="daemon-status-text">Checking...</span></span>
+          </summary>
+          <div id="daemon-meta" class="daemon-meta"></div>
           <code>irm https://ai-pylon.github.io/daemons/install.ps1 | iex</code>
           <code>curl -fsSL https://ai-pylon.github.io/daemons/install.sh | sh</code>
         </details>
-        <div class="sb-links">
-          <a href="{base_path}/catalogs/catalog.json" target="_blank">catalog.json</a>
-          <a href="{base_path}/daemons/latest.json" target="_blank">daemons/latest.json</a>
-        </div>
       </div>
     </aside>
 
@@ -702,7 +710,47 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }});
     document.getElementById('preset-vm').addEventListener('click', () => addServer(DEFAULT_VM));
     document.getElementById('preset-local').addEventListener('click', () => addServer(DEFAULT_LOCAL));
-    document.getElementById('btn-refresh-all').addEventListener('click', () => servers.forEach(loadServer));
+    async function checkLocalDaemon() {{
+      const badge = document.getElementById('daemon-status-badge');
+      const dot = document.getElementById('daemon-dot');
+      const txt = document.getElementById('daemon-status-text');
+      const meta = document.getElementById('daemon-meta');
+      try {{
+        const res = await fetch('http://127.0.0.1:18772/api/status', {{ mode: 'cors' }});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const ch = data.channel || {{}};
+        const dm = data.daemon || {{}};
+        if (ch.connected) {{
+          badge.className = 'daemon-sum-right ok';
+          dot.className = 'dot ok';
+          txt.textContent = 'Connected';
+        }} else {{
+          badge.className = 'daemon-sum-right warn';
+          dot.className = 'dot warn';
+          txt.textContent = 'Running';
+        }}
+        meta.innerHTML = '';
+        const info = document.createElement('span');
+        info.textContent = (dm.endpoint || 'local') + ' (' + (dm.mode || 'client') + ') · ';
+        const link = document.createElement('a');
+        link.href = 'http://127.0.0.1:18772/';
+        link.target = '_blank';
+        link.textContent = 'Status UI ↗';
+        meta.appendChild(info);
+        meta.appendChild(link);
+      }} catch (_) {{
+        badge.className = 'daemon-sum-right';
+        dot.className = 'dot';
+        txt.textContent = 'Offline';
+        meta.textContent = 'Local client daemon (127.0.0.1:18772) not detected.';
+      }}
+    }}
+
+    document.getElementById('btn-refresh-all').addEventListener('click', () => {{
+      servers.forEach(loadServer);
+      checkLocalDaemon();
+    }});
     document.getElementById('toggle-all').addEventListener('click', e => {{
       const groups = [...document.querySelectorAll('#tree .tree-group')];
       const anyOpen = groups.some(g => !g.classList.contains('collapsed'));
@@ -718,6 +766,8 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     servers = loadSavedServers();
     saveServers();
     servers.forEach(loadServer);
+    checkLocalDaemon();
+    setInterval(checkLocalDaemon, 15000);
   </script>
 </body>
 </html>
