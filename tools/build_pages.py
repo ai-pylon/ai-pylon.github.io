@@ -357,6 +357,13 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
             <input id="auth-token" type="password" placeholder="Paste token (from tray Copy Local API Token)">
           </div>
         </div>
+        <div class="auth-field" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
+          <label style="display:inline-flex;align-items:center;gap:6px;margin:0;cursor:pointer;color:var(--text);font-size:0.82rem">
+            <input id="auth-remember" type="checkbox" checked style="width:auto;margin:0">
+            Save credentials
+          </label>
+          <button type="button" id="auth-reset-btn" class="btn sec" style="padding:3px 8px;font-size:0.75rem" title="Clear saved servers, tokens, and local browser state">Reset</button>
+        </div>
         <div id="auth-err" class="auth-err"></div>
         <button type="submit" class="btn auth-submit" id="auth-submit-btn">Sign In</button>
       </form>
@@ -445,13 +452,26 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
     let servers = [];
     function getTokens() {{
-      try {{ return JSON.parse(localStorage.getItem(TOKENS_KEY) || '{{}}') || {{}}; }} catch (_) {{ return {{}}; }}
+      let localMap = {{}}, sessMap = {{}};
+      try {{ localMap = JSON.parse(localStorage.getItem(TOKENS_KEY) || '{{}}') || {{}}; }} catch (_) {{}}
+      try {{ sessMap = JSON.parse(sessionStorage.getItem(TOKENS_KEY) || '{{}}') || {{}}; }} catch (_) {{}}
+      return Object.assign({{}}, localMap, sessMap);
     }}
-    function setToken(origin, token) {{
-      const map = getTokens();
-      if (token && token.trim()) map[origin] = token.trim();
-      else delete map[origin];
-      try {{ localStorage.setItem(TOKENS_KEY, JSON.stringify(map)); }} catch (_) {{}}
+    function setToken(origin, token, persist) {{
+      const keep = persist !== false;
+      try {{
+        const lmap = JSON.parse(localStorage.getItem(TOKENS_KEY) || '{{}}') || {{}};
+        const smap = JSON.parse(sessionStorage.getItem(TOKENS_KEY) || '{{}}') || {{}};
+        if (token && token.trim()) {{
+          if (keep) {{ lmap[origin] = token.trim(); delete smap[origin]; }}
+          else {{ smap[origin] = token.trim(); delete lmap[origin]; }}
+        }} else {{
+          delete lmap[origin];
+          delete smap[origin];
+        }}
+        localStorage.setItem(TOKENS_KEY, JSON.stringify(lmap));
+        sessionStorage.setItem(TOKENS_KEY, JSON.stringify(smap));
+      }} catch (_) {{}}
     }}
     // origin -> {{ origin, name, status: 'loading'|'ok'|'warn', detail, catalogUrl, apps: [], enabledSet: Set|null }}
     const serverState = new Map();
@@ -1030,11 +1050,28 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       e.preventDefault();
       closeAuthGate();
     }});
+    document.getElementById('auth-reset-btn').addEventListener('click', () => {{
+      if (!confirm('Reset all saved servers, credentials, and workspace preferences in this browser?')) return;
+      try {{
+        [SERVERS_KEY, TOKENS_KEY, LEGACY_SERVER_KEY, COLLAPSED_KEY, LAST_SEL_KEY, AUTH_USER_KEY, LAST_AUTH_SRV_KEY].forEach(k => {{
+          localStorage.removeItem(k);
+          sessionStorage.removeItem(k);
+        }});
+      }} catch (_) {{}}
+      servers = loadSavedServers();
+      saveServers();
+      collapsedSet = new Set();
+      activeKey = '';
+      updateAuthBar();
+      renderTree();
+      openAuthGate(servers[0] || DEFAULT_LOCAL);
+    }});
     document.getElementById('btn-auth-action').addEventListener('click', () => {{
       const hasAny = Object.keys(getTokens()).length > 0;
       if (hasAny) {{
         try {{
           localStorage.removeItem(TOKENS_KEY);
+          sessionStorage.removeItem(TOKENS_KEY);
           localStorage.removeItem(AUTH_USER_KEY);
         }} catch (_) {{}}
         updateAuthBar();
@@ -1079,9 +1116,11 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
         if (!res.ok || !data.ok || !data.token) {{
           throw new Error(data.error || ('HTTP ' + res.status));
         }}
-        setToken(origin, data.token);
+        const remember = document.getElementById('auth-remember').checked;
+        setToken(origin, data.token, remember);
         try {{
-          localStorage.setItem(AUTH_USER_KEY, data.user || 'owner');
+          if (remember) localStorage.setItem(AUTH_USER_KEY, data.user || 'owner');
+          else sessionStorage.setItem(AUTH_USER_KEY, data.user || 'owner');
           localStorage.setItem(LAST_AUTH_SRV_KEY, origin);
         }} catch (_) {{}}
         if (!servers.includes(origin)) {{
@@ -1230,7 +1269,7 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
             "  if(typeof window.fetch==='function'&&resolved&&location.origin&&resolved!==location.origin){\n"
             "    var _origFetch=window.fetch.bind(window);\n"
             "    var _isStatic=function(p){return /^\\/(?:appui\\/|pages\\/|catalogs\\/|daemons\\/|dependencies\\/|pylon-config\\.js|release\\.json|$)/.test(p);};\n"
-            "    var _getTok=function(){try{var m=JSON.parse(localStorage.getItem('pylon.server_tokens')||'{}');return (m&&m[resolved])||'';}catch(_){return '';}};\n"
+            "    var _getTok=function(){try{var s=JSON.parse(sessionStorage.getItem('pylon.server_tokens')||'{}');if(s&&s[resolved])return s[resolved];var m=JSON.parse(localStorage.getItem('pylon.server_tokens')||'{}');return (m&&m[resolved])||'';}catch(_){return '';}};\n"
             "    var _withAuth=function(init){\n"
             "      var opts=Object.assign({},init||{});\n"
             "      if(!opts.credentials)opts.credentials='include';\n"

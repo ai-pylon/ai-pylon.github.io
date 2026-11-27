@@ -78,6 +78,25 @@
     }
   }
 
+  async function openManifestDialog(app) {
+    const dlg = document.getElementById('manifest-dlg');
+    const title = document.getElementById('dlg-title');
+    const pathEl = document.getElementById('dlg-path');
+    const body = document.getElementById('dlg-body');
+    title.textContent = app.id + ' — manifest.json';
+    pathEl.textContent = 'Loading...';
+    body.textContent = '';
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    try {
+      const r = await callOp('app_manifest', { app_id: app.id });
+      pathEl.textContent = r.path || '';
+      body.textContent = JSON.stringify(r.manifest || {}, null, 2);
+    } catch (err) {
+      pathEl.textContent = '';
+      body.textContent = 'Failed to load manifest: ' + err.message;
+    }
+  }
+
   function renderApps() {
     const q = (document.getElementById('app-filter').value || '').trim().toLowerCase();
     const tbody = document.getElementById('apps-body');
@@ -88,6 +107,7 @@
     tbody.innerHTML = '';
     for (const a of filtered) {
       const tr = document.createElement('tr');
+      tr.title = 'Click to view manifest.json';
       tr.innerHTML = '<td><code></code></td><td></td><td></td><td></td><td></td>';
       tr.children[0].firstChild.textContent = a.id;
       tr.children[1].textContent = a.title;
@@ -97,6 +117,7 @@
       tr.children[2].appendChild(pb);
       tr.children[3].textContent = a.hosting;
       tr.children[4].textContent = a.has_page ? 'yes' : 'api-only';
+      tr.addEventListener('click', () => openManifestDialog(a));
       tbody.appendChild(tr);
     }
   }
@@ -153,6 +174,15 @@
       } catch (err) { notify(err.message, true); }
     });
     document.getElementById('app-filter').addEventListener('input', renderApps);
+    const dlg = document.getElementById('manifest-dlg');
+    document.getElementById('dlg-close').addEventListener('click', () => dlg.close());
+    dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+    document.getElementById('dlg-copy').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(document.getElementById('dlg-body').textContent || '');
+        notify('Copied manifest.json to clipboard.');
+      } catch (_) {}
+    });
     load();
   });
 })();

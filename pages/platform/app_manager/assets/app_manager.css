@@ -31,3 +31,19 @@ input, select {
 .am-badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 0.75rem; border: 1px solid #8885; }
 .am-badge.ok { border-color: #22c55e; color: #22c55e; }
 .am-badge.pack { border-color: #3b82f6; color: #3b82f6; }
+#apps-body tr { cursor: pointer; }
+#apps-body tr:hover { background: #3b82f618; }
+.am-dlg {
+  width: min(760px, 92vw); max-height: 84vh; border: 1px solid #8886; border-radius: 12px;
+  padding: 0; background: var(--bg-primary, #161922); color: inherit; overflow: hidden;
+}
+@media (prefers-color-scheme: light) { .am-dlg { background: #ffffff; } }
+.am-dlg::backdrop { background: #0008; }
+.am-dlg-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; border-bottom: 1px solid #8884;
+}
+.am-pre {
+  margin: 0; padding: 14px 16px; max-height: 68vh; overflow: auto;
+  font-size: 0.82rem; line-height: 1.45; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
