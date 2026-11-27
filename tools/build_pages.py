@@ -169,9 +169,15 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     h1 {{ margin: 0; font-size: 1.6rem; }}
     .meta {{ font-size: 0.9rem; opacity: 0.78; }}
     .toolbar {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }}
-    input[type=search] {{ flex: 1; min-width: 220px; padding: 8px 12px; border-radius: 8px; border: 1px solid #8886; font-size: 0.95rem; }}
-    .box {{ border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; }}
+    input[type=search], input[type=url] {{ flex: 1; min-width: 220px; padding: 8px 12px; border-radius: 8px; border: 1px solid #8886; font-size: 0.95rem; }}
+    button {{ padding: 8px 14px; border-radius: 8px; border: 1px solid #8886; background: #3b82f6; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.9rem; }}
+    button.secondary {{ background: transparent; color: inherit; font-weight: 500; }}
+    .box {{ border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }}
     .box h2 {{ margin: 0 0 8px; font-size: 1.05rem; }}
+    .row {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
+    .status {{ font-size: 0.86rem; margin-top: 8px; opacity: 0.9; }}
+    .status.ok {{ color: #22c55e; }}
+    .status.warn {{ color: #f59e0b; }}
     code {{ background: #8882; padding: 2px 6px; border-radius: 5px; font-size: 0.88rem; word-break: break-all; }}
     .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }}
     .card {{ display: block; text-decoration: none; color: inherit; border: 1px solid #8884; border-radius: 10px; padding: 12px 14px; transition: border-color .15s; }}
@@ -185,8 +191,19 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 <body>
   <header>
     <h1>AI Pylon</h1>
-    <div class="meta">API: <code>{api_origin}</code> · <a href="{base_path}/catalogs/catalog.json">catalog.json</a> · <a href="{base_path}/daemons/latest.json">daemons/latest.json</a></div>
+    <div class="meta"><a href="{base_path}/catalogs/catalog.json">catalog.json</a> · <a href="{base_path}/daemons/latest.json">daemons/latest.json</a></div>
   </header>
+
+  <section class="box">
+    <h2>Connected Pylon Server</h2>
+    <form id="server-form" class="row">
+      <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8771" required>
+      <button type="submit">Connect &amp; Save</button>
+      <button type="button" class="secondary" id="preset-vm">VM</button>
+      <button type="button" class="secondary" id="preset-local">Local (127.0.0.1:8771)</button>
+    </form>
+    <div id="server-status" class="status">Checking server...</div>
+  </section>
 
   <section class="box">
     <h2>Pylon Daemon Client Install</h2>
@@ -201,11 +218,51 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
   <script>
     const BASE = {json.dumps(base_path)};
+    const DEFAULT_SERVER = {json.dumps(api_origin)};
+    const STORAGE_KEY = 'pylon.server_origin';
     let allApps = [];
+    let enabledSet = null;
+
+    function normalizeOrigin(raw) {{
+      try {{
+        const u = new URL((raw || '').trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+        return u.origin;
+      }} catch (_) {{
+        return '';
+      }}
+    }}
+
+    function currentServer() {{
+      const qp = new URLSearchParams(location.search).get('server');
+      if (qp) {{
+        const norm = normalizeOrigin(qp);
+        if (norm) {{
+          try {{ localStorage.setItem(STORAGE_KEY, norm); }} catch (_) {{}}
+          return norm;
+        }}
+      }}
+      try {{
+        const saved = normalizeOrigin(localStorage.getItem(STORAGE_KEY) || '');
+        if (saved) return saved;
+      }} catch (_) {{}}
+      return DEFAULT_SERVER;
+    }}
+
+    function setStatus(text, cls) {{
+      const el = document.getElementById('server-status');
+      el.textContent = text;
+      el.className = 'status ' + (cls || '');
+    }}
+
     function render(filterText) {{
       const q = (filterText || '').trim().toLowerCase();
       const root = document.getElementById('apps');
-      const items = allApps.filter(a => a.has_page && (!q || (a.id + ' ' + a.title + ' ' + a.description).toLowerCase().includes(q)));
+      const items = allApps.filter(a => {{
+        if (!a.has_page) return false;
+        if (enabledSet && !enabledSet.has(a.id)) return false;
+        return !q || (a.id + ' ' + a.title + ' ' + a.description).toLowerCase().includes(q);
+      }});
       const byGroup = new Map();
       for (const a of items) {{
         if (!byGroup.has(a.group)) byGroup.set(a.group, []);
@@ -233,13 +290,56 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       }}
       if (!items.length) root.textContent = 'No matching apps.';
     }}
-    document.getElementById('q').addEventListener('input', e => render(e.target.value));
-    fetch(BASE + '/catalogs/catalog.json').then(r => r.json()).then(d => {{
-      allApps = d.apps || [];
-      render('');
-    }}).catch(err => {{
-      document.getElementById('apps').textContent = 'Failed to load catalog: ' + err;
+
+    async function connectServer(origin) {{
+      const input = document.getElementById('server-url');
+      input.value = origin;
+      setStatus('Connecting to ' + origin + ' ...');
+      let catalogUrl = BASE + '/catalogs/catalog.json';
+      enabledSet = null;
+      try {{
+        const res = await fetch(origin + '/_pylon/bootstrap', {{ mode: 'cors' }});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const boot = await res.json();
+        if (boot.catalog_url) catalogUrl = boot.catalog_url;
+        if (Array.isArray(boot.enabled_apps) && boot.enabled_apps.length) {{
+          enabledSet = new Set(boot.enabled_apps);
+        }}
+        setStatus('Connected: ' + (boot.server_name || origin) + ' (' + (boot.mode || 'server') + ') · catalog: ' + catalogUrl, 'ok');
+      }} catch (err) {{
+        setStatus('Server unreachable (' + origin + ': ' + err.message + ') — showing default static catalog.', 'warn');
+      }}
+      try {{
+        const catRes = await fetch(catalogUrl);
+        const cat = await catRes.json();
+        allApps = cat.apps || [];
+        render(document.getElementById('q').value);
+      }} catch (err) {{
+        document.getElementById('apps').textContent = 'Failed to load catalog: ' + err;
+      }}
+    }}
+
+    document.getElementById('server-form').addEventListener('submit', e => {{
+      e.preventDefault();
+      const norm = normalizeOrigin(document.getElementById('server-url').value);
+      if (!norm) {{
+        setStatus('Invalid server URL. Use http:// or https:// origin.', 'warn');
+        return;
+      }}
+      try {{ localStorage.setItem(STORAGE_KEY, norm); }} catch (_) {{}}
+      connectServer(norm);
     }});
+    document.getElementById('preset-vm').addEventListener('click', () => {{
+      try {{ localStorage.setItem(STORAGE_KEY, DEFAULT_SERVER); }} catch (_) {{}}
+      connectServer(DEFAULT_SERVER);
+    }});
+    document.getElementById('preset-local').addEventListener('click', () => {{
+      const localOrigin = 'http://127.0.0.1:8771';
+      try {{ localStorage.setItem(STORAGE_KEY, localOrigin); }} catch (_) {{}}
+      connectServer(localOrigin);
+    }});
+    document.getElementById('q').addEventListener('input', e => render(e.target.value));
+    connectServer(currentServer());
   </script>
 </body>
 </html>
@@ -342,11 +442,20 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
             )
         ).hexdigest()[:16]
         (out / "pylon-config.js").write_text(
-            f"window.PYLON_API_ORIGIN={json.dumps(api_origin)};"
-            f"window.PYLON_STATIC_BASE={json.dumps(base_path)};"
-            f"window.APPUI_BASE={json.dumps(base_path + '/appui/')};"
-            f"window.__PYLON_BASE__={json.dumps(base_path)};"
-            f"window.APPUI_ASSET_VERSION={json.dumps(version_hash)};\n",
+            "(function(){\n"
+            f"  var def={json.dumps(api_origin)};\n"
+            "  var resolved=def;\n"
+            "  try{\n"
+            "    var qp=new URLSearchParams(location.search).get('server');\n"
+            "    var raw=qp||localStorage.getItem('pylon.server_origin')||'';\n"
+            "    if(raw){var u=new URL(raw.trim());if(u.protocol==='http:'||u.protocol==='https:'){resolved=u.origin;if(qp)localStorage.setItem('pylon.server_origin',resolved);}}\n"
+            "  }catch(_){}\n"
+            "  window.PYLON_API_ORIGIN=resolved;\n"
+            f"  window.PYLON_STATIC_BASE={json.dumps(base_path)};\n"
+            f"  window.APPUI_BASE={json.dumps(base_path + '/appui/')};\n"
+            f"  window.__PYLON_BASE__={json.dumps(base_path)};\n"
+            f"  window.APPUI_ASSET_VERSION={json.dumps(version_hash)};\n"
+            "})();\n",
             encoding="utf-8",
         )
 
