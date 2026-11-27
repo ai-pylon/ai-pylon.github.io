@@ -487,41 +487,36 @@ class TrayHost:
         restart_cmd = (os.environ.get("PYLON2_RESTART_CMD") or "").strip()
         restart_script = (os.environ.get("PYLON2_RESTART_SCRIPT") or "").strip()
         restart_cwd = (os.environ.get("PYLON2_RESTART_CWD") or os.getcwd()).strip()
-        flags = (
-            getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            | getattr(subprocess, "DETACHED_PROCESS", 0)
-            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        py = sys.executable or "python"
+        pyw = py.lower().replace("python.exe", "pythonw.exe")
+        if pyw.endswith("pythonw.exe") and os.path.isfile(pyw):
+            py = pyw
+        # Note: CREATE_NO_WINDOW and DETACHED_PROCESS are mutually exclusive on Windows.
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        helper = (
+            "import os, subprocess, time; "
+            f"dpid={dpid}; mypid={os.getpid()}; "
+            "no_win=getattr(subprocess,'CREATE_NO_WINDOW',0); "
+            "dpid and dpid!=mypid and subprocess.run(['taskkill','/F','/PID',str(dpid)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win); "
+            "time.sleep(2.0); "
+            f"rcmd={restart_cmd!r}; rscr={restart_script!r}; rcwd={restart_cwd!r}; py={py!r}; "
+            "if rcmd and os.path.isfile(rcmd): "
+            "subprocess.Popen(['cmd.exe','/c',rcmd],cwd=os.path.dirname(rcmd) or rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
+            "elif rscr and os.path.isfile(rscr): "
+            "subprocess.Popen([py,rscr],cwd=rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
         )
-        # Never use /T here: _tray_host is a child of dpid, so /T would also kill
-        # this detached cmd.exe restart helper before it can relaunch!
-        # Killing dpid alone closes its Windows Job Object, which cleanly stops uvicorn.
-        kill_part = f"taskkill /F /PID {dpid} >nul 2>&1 & " if (dpid and dpid != os.getpid()) else ""
-        if restart_cmd and os.path.isfile(restart_cmd):
-            launch_part = f'call "{restart_cmd}"'
-            cwd = os.path.dirname(restart_cmd) or restart_cwd
-        elif restart_script and os.path.isfile(restart_script):
-            py = sys.executable or "python"
-            pyw = py.lower().replace("python.exe", "pythonw.exe")
-            if pyw.endswith("pythonw.exe") and os.path.isfile(pyw):
-                py = pyw
-            launch_part = f'start "" /b "{py}" "{restart_script}"'
-            cwd = restart_cwd
-        else:
-            launch_part = ""
-            cwd = restart_cwd
-        cmd_str = f"{kill_part}ping -n 3 127.0.0.1 >nul & {launch_part}" if launch_part else kill_part.rstrip(" &")
-        if cmd_str:
-            try:
-                subprocess.Popen(
-                    ["cmd.exe", "/c", cmd_str],
-                    cwd=cwd,
-                    stdin=subprocess.DEVNULL,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    creationflags=flags,
-                )
-            except Exception:  # noqa: BLE001
-                pass
+        try:
+            subprocess.Popen(
+                [py, "-c", helper],
+                cwd=restart_cwd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                close_fds=True,
+                creationflags=flags,
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     def _quit(self, *_a):
         self._stop_icon_only()
