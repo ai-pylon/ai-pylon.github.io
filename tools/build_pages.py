@@ -899,13 +899,17 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       wrap.innerHTML = '';
       const curVal = normalizeOrigin(document.getElementById('auth-server').value);
       for (const origin of servers) {{
+        const grp = document.createElement('span');
+        grp.style.display = 'inline-flex';
+        grp.style.alignItems = 'center';
+        grp.style.gap = '2px';
+
         const pill = document.createElement('button');
         pill.type = 'button';
         pill.className = 'btn ' + (origin === curVal ? '' : 'sec');
         pill.style.fontSize = '0.76rem';
         pill.style.padding = '4px 8px';
-        const host = origin.replace(/^https?:\/\//, '');
-        pill.textContent = host;
+        pill.textContent = origin.replace(/^https?:\/\//, '');
         pill.title = origin;
         pill.addEventListener('click', () => {{
           document.getElementById('auth-server').value = origin;
@@ -915,8 +919,48 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
           syncOAuthLink();
           renderAuthSavedPills();
         }});
-        wrap.appendChild(pill);
+        grp.appendChild(pill);
+
+        if (servers.length > 1) {{
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'icon-btn';
+          rm.textContent = '×';
+          rm.title = 'Remove ' + origin;
+          rm.addEventListener('click', () => {{
+            servers = servers.filter(s => s !== origin);
+            serverState.delete(origin);
+            saveServers();
+            if (curVal === origin) {{
+              document.getElementById('auth-server').value = servers[0] || '';
+            }}
+            syncOAuthLink();
+            renderAuthSavedPills();
+            renderTree();
+          }});
+          grp.appendChild(rm);
+        }}
+        wrap.appendChild(grp);
       }}
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'btn sec';
+      addBtn.style.fontSize = '0.76rem';
+      addBtn.style.padding = '4px 8px';
+      addBtn.style.borderStyle = 'dashed';
+      addBtn.textContent = '+ Add Server';
+      addBtn.title = 'Add another Pylon server URL';
+      addBtn.addEventListener('click', () => {{
+        const input = document.getElementById('auth-server');
+        input.value = '';
+        input.placeholder = 'https://my-server.example or 192.168.0.10:8910';
+        input.focus();
+        document.getElementById('auth-token').value = '';
+        document.getElementById('auth-err').textContent = '';
+        renderAuthSavedPills();
+      }});
+      wrap.appendChild(addBtn);
     }}
 
     function updateAuthBar() {{
