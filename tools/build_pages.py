@@ -163,65 +163,199 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>AI Pylon</title>
   <style>
-    :root {{ color-scheme: dark light; font-family: system-ui, -apple-system, sans-serif; }}
-    body {{ max-width: 1080px; margin: 0 auto; padding: 24px 20px 64px; line-height: 1.5; }}
-    header {{ display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid #8884; padding-bottom: 16px; margin-bottom: 20px; }}
-    h1 {{ margin: 0; font-size: 1.6rem; }}
-    .meta {{ font-size: 0.9rem; opacity: 0.78; }}
-    .toolbar {{ display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }}
-    input[type=search], input[type=url] {{ flex: 1; min-width: 220px; padding: 8px 12px; border-radius: 8px; border: 1px solid #8886; font-size: 0.95rem; }}
-    button {{ padding: 8px 14px; border-radius: 8px; border: 1px solid #8886; background: #3b82f6; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.9rem; }}
-    button.secondary {{ background: transparent; color: inherit; font-weight: 500; }}
-    .box {{ border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }}
-    .box h2 {{ margin: 0 0 8px; font-size: 1.05rem; }}
-    .row {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }}
-    .status {{ font-size: 0.86rem; margin-top: 8px; opacity: 0.9; }}
-    .status.ok {{ color: #22c55e; }}
-    .status.warn {{ color: #f59e0b; }}
-    code {{ background: #8882; padding: 2px 6px; border-radius: 5px; font-size: 0.88rem; word-break: break-all; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }}
-    .card {{ display: block; text-decoration: none; color: inherit; border: 1px solid #8884; border-radius: 10px; padding: 12px 14px; transition: border-color .15s; }}
-    .card:hover {{ border-color: #3b82f6; }}
-    .card .title {{ font-weight: 600; margin-bottom: 4px; }}
-    .card .id {{ font-size: 0.8rem; opacity: 0.7; margin-bottom: 6px; }}
-    .card .desc {{ font-size: 0.86rem; opacity: 0.88; }}
-    .group-title {{ margin: 22px 0 10px; font-size: 1.05rem; text-transform: uppercase; letter-spacing: .04em; opacity: 0.75; }}
+    :root {{
+      color-scheme: dark light;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #0f1117;
+      --panel: #161922;
+      --border: #2a2f3e;
+      --text: #e6e9f2;
+      --muted: #939bb0;
+      --accent: #3b82f6;
+      --hover: #1f2433;
+      --active: #1d2c49;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+    }}
+    @media (prefers-color-scheme: light) {{
+      :root {{
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --border: #dfe3ec;
+        --text: #181c26;
+        --muted: #5d667a;
+        --accent: #2563eb;
+        --hover: #eef2fa;
+        --active: #dbeafe;
+      }}
+    }}
+    * {{ box-sizing: border-box; }}
+    html, body {{ height: 100%; margin: 0; background: var(--bg); color: var(--text); }}
+    .layout {{ display: flex; height: 100vh; overflow: hidden; }}
+    .sidebar {{
+      width: 320px; min-width: 240px; max-width: 45vw;
+      background: var(--panel); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }}
+    .sb-head {{ padding: 12px 14px; border-bottom: 1px solid var(--border); }}
+    .brand-row {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }}
+    .brand {{ font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }}
+    .dot {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }}
+    .dot.ok {{ background: var(--ok); }}
+    .dot.warn {{ background: var(--warn); }}
+    .server-form {{ display: flex; gap: 6px; margin-bottom: 6px; }}
+    .server-form input {{
+      flex: 1; min-width: 0; padding: 6px 8px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.82rem;
+    }}
+    .btn {{
+      padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border);
+      background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; font-size: 0.8rem;
+      white-space: nowrap;
+    }}
+    .btn.sec {{ background: transparent; color: var(--text); font-weight: 500; }}
+    .btn.sec:hover {{ background: var(--hover); }}
+    .presets {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }}
+    .status-line {{ font-size: 0.76rem; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+    .sb-search {{
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      display: flex; gap: 6px; align-items: center;
+    }}
+    .sb-search input {{
+      flex: 1; min-width: 0; padding: 6px 9px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 0.84rem;
+    }}
+    .tree-wrap {{ flex: 1; overflow-y: auto; padding: 8px 6px 16px; }}
+    .tree-group {{ margin-bottom: 2px; }}
+    .tree-node {{
+      display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px;
+      cursor: pointer; user-select: none; font-size: 0.86rem; color: var(--text);
+    }}
+    .tree-node:hover {{ background: var(--hover); }}
+    .tree-node.folder {{ font-weight: 600; }}
+    .tree-node.sub {{ font-weight: 500; color: var(--muted); font-size: 0.82rem; }}
+    .tree-node.leaf {{ text-decoration: none; font-weight: 400; padding-left: 8px; }}
+    .tree-node.leaf.active {{ background: var(--active); color: var(--accent); font-weight: 600; }}
+    .chev {{ width: 14px; text-align: center; font-size: 0.7rem; color: var(--muted); transition: transform .12s; flex-shrink: 0; }}
+    .tree-group.collapsed > .tree-node .chev {{ transform: rotate(-90deg); }}
+    .tree-children {{ padding-left: 14px; border-left: 1px solid var(--border); margin-left: 13px; }}
+    .tree-group.collapsed > .tree-children {{ display: none; }}
+    .badge {{ margin-left: auto; font-size: 0.72rem; color: var(--muted); background: var(--bg); padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border); }}
+    .leaf-title {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    .sb-foot {{
+      border-top: 1px solid var(--border); padding: 8px 12px; font-size: 0.78rem; color: var(--muted);
+    }}
+    .sb-foot details summary {{ cursor: pointer; font-weight: 600; color: var(--text); }}
+    .sb-foot code {{ display: block; background: var(--bg); border: 1px solid var(--border); padding: 5px 7px; border-radius: 6px; margin-top: 5px; font-size: 0.74rem; word-break: break-all; color: var(--text); }}
+    .sb-links {{ display: flex; gap: 10px; margin-top: 6px; }}
+    .sb-links a {{ color: var(--muted); text-decoration: none; }}
+    .sb-links a:hover {{ color: var(--accent); text-decoration: underline; }}
+
+    .main {{ flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }}
+    .topbar {{
+      height: 44px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--panel);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }}
+    .topbar-left {{ display: flex; align-items: baseline; gap: 10px; min-width: 0; }}
+    .app-title {{ font-weight: 600; font-size: 0.95rem; white-space: nowrap; }}
+    .app-id {{ font-size: 0.8rem; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+    .app-desc {{ font-size: 0.82rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    .topbar-actions {{ display: flex; gap: 6px; flex-shrink: 0; }}
+    .frame-wrap {{ flex: 1; position: relative; }}
+    iframe#app-frame {{ width: 100%; height: 100%; border: 0; background: var(--bg); display: none; }}
+    .welcome {{
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px; color: var(--muted);
+    }}
+    .welcome h2 {{ margin: 0 0 8px; color: var(--text); font-size: 1.25rem; }}
+    .welcome p {{ margin: 4px 0; max-width: 480px; font-size: 0.9rem; }}
+    @media (max-width: 760px) {{
+      .layout {{ flex-direction: column; }}
+      .sidebar {{ width: 100%; max-width: none; height: 48vh; border-right: 0; border-bottom: 1px solid var(--border); }}
+      .app-desc {{ display: none; }}
+    }}
   </style>
 </head>
 <body>
-  <header>
-    <h1>AI Pylon</h1>
-    <div class="meta"><a href="{base_path}/catalogs/catalog.json">catalog.json</a> · <a href="{base_path}/daemons/latest.json">daemons/latest.json</a></div>
-  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sb-head">
+        <div class="brand-row">
+          <div class="brand"><span id="status-dot" class="dot"></span>AI Pylon</div>
+          <span id="app-count" class="badge">0</span>
+        </div>
+        <form id="server-form" class="server-form">
+          <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
+          <button type="submit" class="btn">Connect</button>
+        </form>
+        <div class="presets">
+          <button type="button" class="btn sec" id="preset-vm">VM</button>
+          <button type="button" class="btn sec" id="preset-local">Local (8910)</button>
+          <button type="button" class="btn sec" id="toggle-all">Collapse</button>
+        </div>
+        <div id="server-status" class="status-line">Checking server...</div>
+      </div>
 
-  <section class="box">
-    <h2>Connected Pylon Server</h2>
-    <form id="server-form" class="row">
-      <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
-      <button type="submit">Connect &amp; Save</button>
-      <button type="button" class="secondary" id="preset-vm">VM</button>
-      <button type="button" class="secondary" id="preset-local">Local (127.0.0.1:8910)</button>
-    </form>
-    <div id="server-status" class="status">Checking server...</div>
-  </section>
+      <div class="sb-search">
+        <input id="q" type="search" placeholder="Filter apps in tree...">
+      </div>
 
-  <section class="box">
-    <h2>Pylon Daemon Client Install</h2>
-    <div>Windows (PowerShell): <code>irm https://ai-pylon.github.io/daemons/install.ps1 | iex</code></div>
-    <div style="margin-top:6px">Linux / macOS: <code>curl -fsSL https://ai-pylon.github.io/daemons/install.sh | sh</code></div>
-  </section>
+      <div id="tree" class="tree-wrap">Loading catalog...</div>
 
-  <div class="toolbar">
-    <input id="q" type="search" placeholder="Filter apps by name, group, or description...">
+      <div class="sb-foot">
+        <details>
+          <summary>Daemon Client Install</summary>
+          <code>irm https://ai-pylon.github.io/daemons/install.ps1 | iex</code>
+          <code>curl -fsSL https://ai-pylon.github.io/daemons/install.sh | sh</code>
+        </details>
+        <div class="sb-links">
+          <a href="{base_path}/catalogs/catalog.json" target="_blank">catalog.json</a>
+          <a href="{base_path}/daemons/latest.json" target="_blank">daemons/latest.json</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="topbar-left">
+          <span id="cur-title" class="app-title">Select an app</span>
+          <span id="cur-id" class="app-id"></span>
+          <span id="cur-desc" class="app-desc"></span>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" class="btn sec" id="btn-reload" style="display:none">Reload</button>
+          <a id="btn-open" class="btn" href="#" target="_blank" style="display:none;text-decoration:none">Open Tab ↗</a>
+        </div>
+      </div>
+      <div class="frame-wrap">
+        <div id="welcome" class="welcome">
+          <h2>AI Pylon Workspace</h2>
+          <p>Select any app from the tree on the left to open it here, or switch between your VM and Local Pylon server above.</p>
+        </div>
+        <iframe id="app-frame" title="Pylon App"></iframe>
+      </div>
+    </main>
   </div>
-  <div id="apps">Loading catalog...</div>
 
   <script>
     const BASE = {json.dumps(base_path)};
     const DEFAULT_SERVER = {json.dumps(api_origin)};
     const STORAGE_KEY = 'pylon.server_origin';
+    const COLLAPSED_KEY = 'pylon.tree.collapsed';
+    const LAST_APP_KEY = 'pylon.last_app';
+
     let allApps = [];
     let enabledSet = null;
+    let activeAppId = '';
+    let collapsedSet = new Set();
+    try {{
+      const raw = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]');
+      if (Array.isArray(raw)) collapsedSet = new Set(raw);
+    }} catch (_) {{}}
+
+    function saveCollapsed() {{
+      try {{ localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedSet])); }} catch (_) {{}}
+    }}
 
     function normalizeOrigin(raw) {{
       try {{
@@ -251,49 +385,150 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
     function setStatus(text, cls) {{
       const el = document.getElementById('server-status');
+      const dot = document.getElementById('status-dot');
       el.textContent = text;
-      el.className = 'status ' + (cls || '');
+      el.title = text;
+      dot.className = 'dot ' + (cls || '');
     }}
 
-    function render(filterText) {{
+    function selectApp(app, pushHash) {{
+      if (!app || !app.page) return;
+      activeAppId = app.id;
+      try {{ localStorage.setItem(LAST_APP_KEY, app.id); }} catch (_) {{}}
+      if (pushHash) history.replaceState(null, '', '#' + app.id);
+
+      const url = BASE + app.page;
+      document.getElementById('cur-title').textContent = app.title;
+      document.getElementById('cur-id').textContent = app.id;
+      document.getElementById('cur-desc').textContent = app.description || '';
+      const openBtn = document.getElementById('btn-open');
+      openBtn.href = url;
+      openBtn.style.display = 'inline-block';
+      document.getElementById('btn-reload').style.display = 'inline-block';
+      document.getElementById('welcome').style.display = 'none';
+      const frame = document.getElementById('app-frame');
+      frame.style.display = 'block';
+      frame.src = url;
+
+      document.querySelectorAll('.tree-node.leaf').forEach(el => {{
+        el.classList.toggle('active', el.dataset.id === app.id);
+      }});
+    }}
+
+    function buildTreeData(items) {{
+      const groups = new Map();
+      for (const a of items) {{
+        const g = a.group || 'other';
+        if (!groups.has(g)) groups.set(g, new Map());
+        const cat = (a.category || g).trim();
+        let sub = '';
+        if (cat.includes('/')) {{
+          const parts = cat.split('/');
+          if (parts[1] && parts[1] !== g) sub = parts.slice(1).join('/');
+        }} else if (cat !== g) {{
+          sub = cat;
+        }}
+        const subMap = groups.get(g);
+        if (!subMap.has(sub)) subMap.set(sub, []);
+        subMap.get(sub).push(a);
+      }}
+      return groups;
+    }}
+
+    function makeLeaf(app) {{
+      const a = document.createElement('a');
+      a.className = 'tree-node leaf' + (app.id === activeAppId ? ' active' : '');
+      a.href = BASE + app.page;
+      a.dataset.id = app.id;
+      a.title = app.id + (app.description ? ' — ' + app.description : '');
+      const span = document.createElement('span');
+      span.className = 'leaf-title';
+      span.textContent = app.title;
+      a.appendChild(span);
+      a.addEventListener('click', e => {{
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        selectApp(app, true);
+      }});
+      return a;
+    }}
+
+    function renderTree(filterText) {{
       const q = (filterText || '').trim().toLowerCase();
-      const root = document.getElementById('apps');
+      const root = document.getElementById('tree');
       const items = allApps.filter(a => {{
         if (!a.has_page) return false;
         if (enabledSet && !enabledSet.has(a.id)) return false;
-        return !q || (a.id + ' ' + a.title + ' ' + a.description).toLowerCase().includes(q);
+        return !q || (a.id + ' ' + a.title + ' ' + (a.category || '') + ' ' + (a.description || '')).toLowerCase().includes(q);
       }});
-      const byGroup = new Map();
-      for (const a of items) {{
-        if (!byGroup.has(a.group)) byGroup.set(a.group, []);
-        byGroup.get(a.group).push(a);
-      }}
+      document.getElementById('app-count').textContent = String(items.length);
       root.innerHTML = '';
-      for (const [group, list] of byGroup.entries()) {{
-        const h = document.createElement('div');
-        h.className = 'group-title';
-        h.textContent = group + ' (' + list.length + ')';
-        root.appendChild(h);
-        const grid = document.createElement('div');
-        grid.className = 'grid';
-        for (const a of list) {{
-          const link = document.createElement('a');
-          link.className = 'card';
-          link.href = BASE + a.page;
-          link.innerHTML = '<div class="title"></div><div class="id"></div><div class="desc"></div>';
-          link.querySelector('.title').textContent = a.title;
-          link.querySelector('.id').textContent = a.id;
-          link.querySelector('.desc').textContent = a.description || '';
-          grid.appendChild(link);
-        }}
-        root.appendChild(grid);
+      if (!items.length) {{
+        root.textContent = 'No matching apps.';
+        return;
       }}
-      if (!items.length) root.textContent = 'No matching apps.';
+
+      const tree = buildTreeData(items);
+      for (const [groupName, subMap] of [...tree.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {{
+        const groupKey = 'g:' + groupName;
+        const totalInGroup = [...subMap.values()].reduce((s, arr) => s + arr.length, 0);
+        const gWrap = document.createElement('div');
+        gWrap.className = 'tree-group' + (!q && collapsedSet.has(groupKey) ? ' collapsed' : '');
+
+        const gRow = document.createElement('div');
+        gRow.className = 'tree-node folder';
+        gRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
+        gRow.children[1].textContent = groupName;
+        gRow.children[2].textContent = String(totalInGroup);
+        gRow.addEventListener('click', () => {{
+          gWrap.classList.toggle('collapsed');
+          if (gWrap.classList.contains('collapsed')) collapsedSet.add(groupKey);
+          else collapsedSet.delete(groupKey);
+          saveCollapsed();
+        }});
+        gWrap.appendChild(gRow);
+
+        const gChildren = document.createElement('div');
+        gChildren.className = 'tree-children';
+
+        const subKeys = [...subMap.keys()].sort((a, b) => a.localeCompare(b));
+        const useSubFolders = subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== '');
+        for (const subName of subKeys) {{
+          const apps = subMap.get(subName).slice().sort((a, b) => a.title.localeCompare(b.title));
+          if (!useSubFolders || !subName) {{
+            for (const app of apps) gChildren.appendChild(makeLeaf(app));
+          }} else {{
+            const subKey = 's:' + groupName + '/' + subName;
+            const sWrap = document.createElement('div');
+            sWrap.className = 'tree-group' + (!q && collapsedSet.has(subKey) ? ' collapsed' : '');
+
+            const sRow = document.createElement('div');
+            sRow.className = 'tree-node sub';
+            sRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
+            sRow.children[1].textContent = subName;
+            sRow.children[2].textContent = String(apps.length);
+            sRow.addEventListener('click', () => {{
+              sWrap.classList.toggle('collapsed');
+              if (sWrap.classList.contains('collapsed')) collapsedSet.add(subKey);
+              else collapsedSet.delete(subKey);
+              saveCollapsed();
+            }});
+            sWrap.appendChild(sRow);
+
+            const sChildren = document.createElement('div');
+            sChildren.className = 'tree-children';
+            for (const app of apps) sChildren.appendChild(makeLeaf(app));
+            sWrap.appendChild(sChildren);
+            gChildren.appendChild(sWrap);
+          }}
+        }}
+        gWrap.appendChild(gChildren);
+        root.appendChild(gWrap);
+      }}
     }}
 
     async function connectServer(origin) {{
-      const input = document.getElementById('server-url');
-      input.value = origin;
+      document.getElementById('server-url').value = origin;
       setStatus('Connecting to ' + origin + ' ...');
       let catalogUrl = BASE + '/catalogs/catalog.json';
       enabledSet = null;
@@ -305,17 +540,22 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
         if (Array.isArray(boot.enabled_apps) && boot.enabled_apps.length) {{
           enabledSet = new Set(boot.enabled_apps);
         }}
-        setStatus('Connected: ' + (boot.server_name || origin) + ' (' + (boot.mode || 'server') + ') · catalog: ' + catalogUrl, 'ok');
+        setStatus((boot.server_name || origin) + ' · ' + catalogUrl, 'ok');
       }} catch (err) {{
-        setStatus('Server unreachable (' + origin + ': ' + err.message + ') — showing default static catalog.', 'warn');
+        setStatus('Offline (' + origin + ') · default catalog', 'warn');
       }}
       try {{
         const catRes = await fetch(catalogUrl);
         const cat = await catRes.json();
         allApps = cat.apps || [];
-        render(document.getElementById('q').value);
+        renderTree(document.getElementById('q').value);
+
+        const hashId = location.hash ? location.hash.slice(1) : '';
+        const targetId = hashId || activeAppId || localStorage.getItem(LAST_APP_KEY) || '';
+        const found = allApps.find(a => a.id === targetId && a.has_page);
+        if (found) selectApp(found, false);
       }} catch (err) {{
-        document.getElementById('apps').textContent = 'Failed to load catalog: ' + err;
+        document.getElementById('tree').textContent = 'Failed to load catalog: ' + err;
       }}
     }}
 
@@ -323,7 +563,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       e.preventDefault();
       const norm = normalizeOrigin(document.getElementById('server-url').value);
       if (!norm) {{
-        setStatus('Invalid server URL. Use http:// or https:// origin.', 'warn');
+        setStatus('Invalid server URL', 'warn');
         return;
       }}
       try {{ localStorage.setItem(STORAGE_KEY, norm); }} catch (_) {{}}
@@ -338,7 +578,17 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       try {{ localStorage.setItem(STORAGE_KEY, localOrigin); }} catch (_) {{}}
       connectServer(localOrigin);
     }});
-    document.getElementById('q').addEventListener('input', e => render(e.target.value));
+    document.getElementById('toggle-all').addEventListener('click', e => {{
+      const groups = [...document.querySelectorAll('#tree .tree-group')];
+      const anyOpen = groups.some(g => !g.classList.contains('collapsed'));
+      groups.forEach(g => g.classList.toggle('collapsed', anyOpen));
+      e.target.textContent = anyOpen ? 'Expand' : 'Collapse';
+    }});
+    document.getElementById('btn-reload').addEventListener('click', () => {{
+      const frame = document.getElementById('app-frame');
+      if (frame.src) frame.src = frame.src;
+    }});
+    document.getElementById('q').addEventListener('input', e => renderTree(e.target.value));
     connectServer(currentServer());
   </script>
 </body>
