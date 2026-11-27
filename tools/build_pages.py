@@ -200,7 +200,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     .sb-head {{ padding: 12px 14px; border-bottom: 1px solid var(--border); }}
     .brand-row {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }}
     .brand {{ font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }}
-    .dot {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }}
+    .dot {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }}
     .dot.ok {{ background: var(--ok); }}
     .dot.warn {{ background: var(--warn); }}
     .server-form {{ display: flex; gap: 6px; margin-bottom: 6px; }}
@@ -215,8 +215,12 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }}
     .btn.sec {{ background: transparent; color: var(--text); font-weight: 500; }}
     .btn.sec:hover {{ background: var(--hover); }}
+    .icon-btn {{
+      border: 0; background: transparent; color: var(--muted); cursor: pointer;
+      padding: 1px 4px; border-radius: 4px; font-size: 0.78rem; line-height: 1;
+    }}
+    .icon-btn:hover {{ background: var(--hover); color: var(--text); }}
     .presets {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }}
-    .status-line {{ font-size: 0.76rem; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
     .sb-search {{
       padding: 8px 12px; border-bottom: 1px solid var(--border);
       display: flex; gap: 6px; align-items: center;
@@ -232,16 +236,20 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       cursor: pointer; user-select: none; font-size: 0.86rem; color: var(--text);
     }}
     .tree-node:hover {{ background: var(--hover); }}
+    .tree-node.server-root {{ font-weight: 700; font-size: 0.88rem; margin-top: 4px; }}
     .tree-node.folder {{ font-weight: 600; }}
     .tree-node.sub {{ font-weight: 500; color: var(--muted); font-size: 0.82rem; }}
     .tree-node.leaf {{ text-decoration: none; font-weight: 400; padding-left: 8px; }}
     .tree-node.leaf.active {{ background: var(--active); color: var(--accent); font-weight: 600; }}
+    .server-sub {{ font-size: 0.72rem; color: var(--muted); padding: 0 8px 4px 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
     .chev {{ width: 14px; text-align: center; font-size: 0.7rem; color: var(--muted); transition: transform .12s; flex-shrink: 0; }}
     .tree-group.collapsed > .tree-node .chev {{ transform: rotate(-90deg); }}
     .tree-children {{ padding-left: 14px; border-left: 1px solid var(--border); margin-left: 13px; }}
-    .tree-group.collapsed > .tree-children {{ display: none; }}
+    .tree-group.collapsed > .tree-children,
+    .tree-group.collapsed > .server-sub {{ display: none; }}
     .badge {{ margin-left: auto; font-size: 0.72rem; color: var(--muted); background: var(--bg); padding: 1px 6px; border-radius: 10px; border: 1px solid var(--border); }}
     .leaf-title {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+    .server-pill {{ font-size: 0.75rem; color: var(--accent); background: var(--active); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }}
     .sb-foot {{
       border-top: 1px solid var(--border); padding: 8px 12px; font-size: 0.78rem; color: var(--muted);
     }}
@@ -281,26 +289,26 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     <aside class="sidebar">
       <div class="sb-head">
         <div class="brand-row">
-          <div class="brand"><span id="status-dot" class="dot"></span>AI Pylon</div>
-          <span id="app-count" class="badge">0</span>
+          <div class="brand">AI Pylon</div>
+          <span id="server-count" class="badge">0 servers</span>
         </div>
         <form id="server-form" class="server-form">
-          <input id="server-url" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
-          <button type="submit" class="btn">Connect</button>
+          <input id="server-url" type="url" placeholder="Add server (https://... or http://127.0.0.1:8910)" required>
+          <button type="submit" class="btn">+ Add</button>
         </form>
         <div class="presets">
-          <button type="button" class="btn sec" id="preset-vm">VM</button>
-          <button type="button" class="btn sec" id="preset-local">Local (8910)</button>
+          <button type="button" class="btn sec" id="preset-vm">+ VM</button>
+          <button type="button" class="btn sec" id="preset-local">+ Local (8910)</button>
+          <button type="button" class="btn sec" id="btn-refresh-all">Refresh</button>
           <button type="button" class="btn sec" id="toggle-all">Collapse</button>
         </div>
-        <div id="server-status" class="status-line">Checking server...</div>
       </div>
 
       <div class="sb-search">
-        <input id="q" type="search" placeholder="Filter apps in tree...">
+        <input id="q" type="search" placeholder="Filter apps across all servers...">
       </div>
 
-      <div id="tree" class="tree-wrap">Loading catalog...</div>
+      <div id="tree" class="tree-wrap">Loading servers...</div>
 
       <div class="sb-foot">
         <details>
@@ -318,6 +326,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     <main class="main">
       <div class="topbar">
         <div class="topbar-left">
+          <span id="cur-server" class="server-pill" style="display:none"></span>
           <span id="cur-title" class="app-title">Select an app</span>
           <span id="cur-id" class="app-id"></span>
           <span id="cur-desc" class="app-desc"></span>
@@ -329,8 +338,8 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       </div>
       <div class="frame-wrap">
         <div id="welcome" class="welcome">
-          <h2>AI Pylon Workspace</h2>
-          <p>Select any app from the tree on the left to open it here, or switch between your VM and Local Pylon server above.</p>
+          <h2>AI Pylon Multi-Server Workspace</h2>
+          <p>Add one or more Pylon servers (VM, Local, or LAN) on the left. Each server appears as a root node in the tree with its own catalog and apps.</p>
         </div>
         <iframe id="app-frame" title="Pylon App"></iframe>
       </div>
@@ -339,14 +348,17 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
   <script>
     const BASE = {json.dumps(base_path)};
-    const DEFAULT_SERVER = {json.dumps(api_origin)};
-    const STORAGE_KEY = 'pylon.server_origin';
+    const DEFAULT_VM = {json.dumps(api_origin)};
+    const DEFAULT_LOCAL = 'http://127.0.0.1:8910';
+    const SERVERS_KEY = 'pylon.servers';
+    const LEGACY_SERVER_KEY = 'pylon.server_origin';
     const COLLAPSED_KEY = 'pylon.tree.collapsed';
-    const LAST_APP_KEY = 'pylon.last_app';
+    const LAST_SEL_KEY = 'pylon.last_selection';
 
-    let allApps = [];
-    let enabledSet = null;
-    let activeAppId = '';
+    let servers = [];
+    // origin -> {{ origin, name, status: 'loading'|'ok'|'warn', detail, catalogUrl, apps: [], enabledSet: Set|null }}
+    const serverState = new Map();
+    let activeKey = ''; // origin + '::' + app.id
     let collapsedSet = new Set();
     try {{
       const raw = JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]');
@@ -367,37 +379,47 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       }}
     }}
 
-    function currentServer() {{
-      const qp = new URLSearchParams(location.search).get('server');
-      if (qp) {{
-        const norm = normalizeOrigin(qp);
-        if (norm) {{
-          try {{ localStorage.setItem(STORAGE_KEY, norm); }} catch (_) {{}}
-          return norm;
-        }}
-      }}
+    function loadSavedServers() {{
+      let list = [];
       try {{
-        const saved = normalizeOrigin(localStorage.getItem(STORAGE_KEY) || '');
-        if (saved) return saved;
+        const raw = JSON.parse(localStorage.getItem(SERVERS_KEY) || '[]');
+        if (Array.isArray(raw)) list = raw.map(normalizeOrigin).filter(Boolean);
       }} catch (_) {{}}
-      return DEFAULT_SERVER;
+      if (!list.length) {{
+        const legacy = normalizeOrigin(localStorage.getItem(LEGACY_SERVER_KEY) || '');
+        if (legacy) list.push(legacy);
+        if (!list.includes(DEFAULT_LOCAL)) list.push(DEFAULT_LOCAL);
+        if (!list.includes(DEFAULT_VM)) list.push(DEFAULT_VM);
+      }}
+      const qp = normalizeOrigin(new URLSearchParams(location.search).get('server') || '');
+      if (qp && !list.includes(qp)) list.unshift(qp);
+      return [...new Set(list)];
     }}
 
-    function setStatus(text, cls) {{
-      const el = document.getElementById('server-status');
-      const dot = document.getElementById('status-dot');
-      el.textContent = text;
-      el.title = text;
-      dot.className = 'dot ' + (cls || '');
+    function saveServers() {{
+      try {{ localStorage.setItem(SERVERS_KEY, JSON.stringify(servers)); }} catch (_) {{}}
     }}
 
-    function selectApp(app, pushHash) {{
-      if (!app || !app.page) return;
-      activeAppId = app.id;
-      try {{ localStorage.setItem(LAST_APP_KEY, app.id); }} catch (_) {{}}
-      if (pushHash) history.replaceState(null, '', '#' + app.id);
+    function appUrlFor(origin, app) {{
+      return BASE + app.page + '?server=' + encodeURIComponent(origin);
+    }}
 
-      const url = BASE + app.page;
+    function selectApp(origin, app, pushHash) {{
+      if (!origin || !app || !app.page) return;
+      activeKey = origin + '::' + app.id;
+      try {{
+        localStorage.setItem(LAST_SEL_KEY, JSON.stringify({{ origin, id: app.id }}));
+        localStorage.setItem(LEGACY_SERVER_KEY, origin);
+      }} catch (_) {{}}
+      if (pushHash) history.replaceState(null, '', '#' + encodeURIComponent(origin) + '/' + app.id);
+
+      const url = appUrlFor(origin, app);
+      const st = serverState.get(origin);
+      const pill = document.getElementById('cur-server');
+      pill.textContent = (st && st.name) ? st.name : origin;
+      pill.title = origin;
+      pill.style.display = 'inline-block';
+
       document.getElementById('cur-title').textContent = app.title;
       document.getElementById('cur-id').textContent = app.id;
       document.getElementById('cur-desc').textContent = app.description || '';
@@ -411,7 +433,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       frame.src = url;
 
       document.querySelectorAll('.tree-node.leaf').forEach(el => {{
-        el.classList.toggle('active', el.dataset.id === app.id);
+        el.classList.toggle('active', el.dataset.key === activeKey);
       }});
     }}
 
@@ -435,12 +457,13 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       return groups;
     }}
 
-    function makeLeaf(app) {{
+    function makeLeaf(origin, app) {{
+      const key = origin + '::' + app.id;
       const a = document.createElement('a');
-      a.className = 'tree-node leaf' + (app.id === activeAppId ? ' active' : '');
-      a.href = BASE + app.page;
-      a.dataset.id = app.id;
-      a.title = app.id + (app.description ? ' — ' + app.description : '');
+      a.className = 'tree-node leaf' + (key === activeKey ? ' active' : '');
+      a.href = appUrlFor(origin, app);
+      a.dataset.key = key;
+      a.title = '[' + origin + '] ' + app.id + (app.description ? ' — ' + app.description : '');
       const span = document.createElement('span');
       span.className = 'leaf-title';
       span.textContent = app.title;
@@ -448,136 +471,238 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       a.addEventListener('click', e => {{
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         e.preventDefault();
-        selectApp(app, true);
+        selectApp(origin, app, true);
       }});
       return a;
     }}
 
-    function renderTree(filterText) {{
-      const q = (filterText || '').trim().toLowerCase();
+    function renderTree() {{
+      const q = (document.getElementById('q').value || '').trim().toLowerCase();
       const root = document.getElementById('tree');
-      const items = allApps.filter(a => {{
-        if (!a.has_page) return false;
-        if (enabledSet && !enabledSet.has(a.id)) return false;
-        return !q || (a.id + ' ' + a.title + ' ' + (a.category || '') + ' ' + (a.description || '')).toLowerCase().includes(q);
-      }});
-      document.getElementById('app-count').textContent = String(items.length);
+      document.getElementById('server-count').textContent = servers.length + (servers.length === 1 ? ' server' : ' servers');
       root.innerHTML = '';
-      if (!items.length) {{
-        root.textContent = 'No matching apps.';
+
+      if (!servers.length) {{
+        root.textContent = 'No servers added. Add a server URL above.';
         return;
       }}
 
-      const tree = buildTreeData(items);
-      for (const [groupName, subMap] of [...tree.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {{
-        const groupKey = 'g:' + groupName;
-        const totalInGroup = [...subMap.values()].reduce((s, arr) => s + arr.length, 0);
-        const gWrap = document.createElement('div');
-        gWrap.className = 'tree-group' + (!q && collapsedSet.has(groupKey) ? ' collapsed' : '');
+      for (const origin of servers) {{
+        const st = serverState.get(origin) || {{ origin, name: origin, status: 'loading', detail: 'Connecting...', apps: [], enabledSet: null }};
+        const items = (st.apps || []).filter(a => {{
+          if (!a.has_page) return false;
+          if (st.enabledSet && !st.enabledSet.has(a.id)) return false;
+          return !q || (a.id + ' ' + a.title + ' ' + (a.category || '') + ' ' + (a.description || '') + ' ' + origin + ' ' + st.name).toLowerCase().includes(q);
+        }});
 
-        const gRow = document.createElement('div');
-        gRow.className = 'tree-node folder';
-        gRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
-        gRow.children[1].textContent = groupName;
-        gRow.children[2].textContent = String(totalInGroup);
-        gRow.addEventListener('click', () => {{
-          gWrap.classList.toggle('collapsed');
-          if (gWrap.classList.contains('collapsed')) collapsedSet.add(groupKey);
-          else collapsedSet.delete(groupKey);
+        const srvKey = 'srv:' + origin;
+        const srvWrap = document.createElement('div');
+        srvWrap.className = 'tree-group' + (!q && collapsedSet.has(srvKey) ? ' collapsed' : '');
+
+        const srvRow = document.createElement('div');
+        srvRow.className = 'tree-node server-root';
+        srvRow.innerHTML = '<span class="chev">▼</span><span class="dot"></span><span class="leaf-title"></span><span class="badge"></span>';
+        srvRow.children[1].className = 'dot ' + (st.status === 'ok' ? 'ok' : st.status === 'warn' ? 'warn' : '');
+        srvRow.children[2].textContent = st.name || origin;
+        srvRow.children[2].title = origin;
+        srvRow.children[3].textContent = String(items.length);
+
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'icon-btn';
+        refreshBtn.title = 'Refresh server';
+        refreshBtn.textContent = '↻';
+        refreshBtn.addEventListener('click', e => {{
+          e.stopPropagation();
+          loadServer(origin);
+        }});
+        srvRow.appendChild(refreshBtn);
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'icon-btn';
+        delBtn.title = 'Remove server';
+        delBtn.textContent = '×';
+        delBtn.addEventListener('click', e => {{
+          e.stopPropagation();
+          servers = servers.filter(s => s !== origin);
+          serverState.delete(origin);
+          saveServers();
+          renderTree();
+        }});
+        srvRow.appendChild(delBtn);
+
+        srvRow.addEventListener('click', () => {{
+          srvWrap.classList.toggle('collapsed');
+          if (srvWrap.classList.contains('collapsed')) collapsedSet.add(srvKey);
+          else collapsedSet.delete(srvKey);
           saveCollapsed();
         }});
-        gWrap.appendChild(gRow);
+        srvWrap.appendChild(srvRow);
 
-        const gChildren = document.createElement('div');
-        gChildren.className = 'tree-children';
+        const subInfo = document.createElement('div');
+        subInfo.className = 'server-sub';
+        subInfo.textContent = origin + (st.detail ? ' · ' + st.detail : '');
+        subInfo.title = subInfo.textContent;
+        srvWrap.appendChild(subInfo);
 
-        const subKeys = [...subMap.keys()].sort((a, b) => a.localeCompare(b));
-        const useSubFolders = subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== '');
-        for (const subName of subKeys) {{
-          const apps = subMap.get(subName).slice().sort((a, b) => a.title.localeCompare(b.title));
-          if (!useSubFolders || !subName) {{
-            for (const app of apps) gChildren.appendChild(makeLeaf(app));
-          }} else {{
-            const subKey = 's:' + groupName + '/' + subName;
-            const sWrap = document.createElement('div');
-            sWrap.className = 'tree-group' + (!q && collapsedSet.has(subKey) ? ' collapsed' : '');
+        const srvChildren = document.createElement('div');
+        srvChildren.className = 'tree-children';
 
-            const sRow = document.createElement('div');
-            sRow.className = 'tree-node sub';
-            sRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
-            sRow.children[1].textContent = subName;
-            sRow.children[2].textContent = String(apps.length);
-            sRow.addEventListener('click', () => {{
-              sWrap.classList.toggle('collapsed');
-              if (sWrap.classList.contains('collapsed')) collapsedSet.add(subKey);
-              else collapsedSet.delete(subKey);
+        if (!items.length) {{
+          const empty = document.createElement('div');
+          empty.className = 'server-sub';
+          empty.style.paddingLeft = '8px';
+          empty.textContent = st.status === 'loading' ? 'Loading...' : 'No matching apps.';
+          srvChildren.appendChild(empty);
+        }} else {{
+          const tree = buildTreeData(items);
+          for (const [groupName, subMap] of [...tree.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {{
+            const groupKey = 'g:' + origin + ':' + groupName;
+            const totalInGroup = [...subMap.values()].reduce((s, arr) => s + arr.length, 0);
+            const gWrap = document.createElement('div');
+            gWrap.className = 'tree-group' + (!q && collapsedSet.has(groupKey) ? ' collapsed' : '');
+
+            const gRow = document.createElement('div');
+            gRow.className = 'tree-node folder';
+            gRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
+            gRow.children[1].textContent = groupName;
+            gRow.children[2].textContent = String(totalInGroup);
+            gRow.addEventListener('click', () => {{
+              gWrap.classList.toggle('collapsed');
+              if (gWrap.classList.contains('collapsed')) collapsedSet.add(groupKey);
+              else collapsedSet.delete(groupKey);
               saveCollapsed();
             }});
-            sWrap.appendChild(sRow);
+            gWrap.appendChild(gRow);
 
-            const sChildren = document.createElement('div');
-            sChildren.className = 'tree-children';
-            for (const app of apps) sChildren.appendChild(makeLeaf(app));
-            sWrap.appendChild(sChildren);
-            gChildren.appendChild(sWrap);
+            const gChildren = document.createElement('div');
+            gChildren.className = 'tree-children';
+
+            const subKeys = [...subMap.keys()].sort((a, b) => a.localeCompare(b));
+            const useSubFolders = subKeys.length > 1 || (subKeys.length === 1 && subKeys[0] !== '');
+            for (const subName of subKeys) {{
+              const apps = subMap.get(subName).slice().sort((a, b) => a.title.localeCompare(b.title));
+              if (!useSubFolders || !subName) {{
+                for (const app of apps) gChildren.appendChild(makeLeaf(origin, app));
+              }} else {{
+                const subKey = 's:' + origin + ':' + groupName + '/' + subName;
+                const sWrap = document.createElement('div');
+                sWrap.className = 'tree-group' + (!q && collapsedSet.has(subKey) ? ' collapsed' : '');
+
+                const sRow = document.createElement('div');
+                sRow.className = 'tree-node sub';
+                sRow.innerHTML = '<span class="chev">▼</span><span></span><span class="badge"></span>';
+                sRow.children[1].textContent = subName;
+                sRow.children[2].textContent = String(apps.length);
+                sRow.addEventListener('click', () => {{
+                  sWrap.classList.toggle('collapsed');
+                  if (sWrap.classList.contains('collapsed')) collapsedSet.add(subKey);
+                  else collapsedSet.delete(subKey);
+                  saveCollapsed();
+                }});
+                sWrap.appendChild(sRow);
+
+                const sChildren = document.createElement('div');
+                sChildren.className = 'tree-children';
+                for (const app of apps) sChildren.appendChild(makeLeaf(origin, app));
+                sWrap.appendChild(sChildren);
+                gChildren.appendChild(sWrap);
+              }}
+            }}
+            gWrap.appendChild(gChildren);
+            srvChildren.appendChild(gWrap);
           }}
         }}
-        gWrap.appendChild(gChildren);
-        root.appendChild(gWrap);
+        srvWrap.appendChild(srvChildren);
+        root.appendChild(srvWrap);
       }}
     }}
 
-    async function connectServer(origin) {{
-      document.getElementById('server-url').value = origin;
-      setStatus('Connecting to ' + origin + ' ...');
+    async function loadServer(origin) {{
+      const prev = serverState.get(origin) || {{}};
+      serverState.set(origin, {{
+        origin,
+        name: prev.name || new URL(origin).host,
+        status: 'loading',
+        detail: 'Connecting...',
+        catalogUrl: BASE + '/catalogs/catalog.json',
+        apps: prev.apps || [],
+        enabledSet: null,
+      }});
+      renderTree();
+
+      let name = new URL(origin).host;
+      let status = 'warn';
+      let detail = 'offline (default catalog)';
       let catalogUrl = BASE + '/catalogs/catalog.json';
-      enabledSet = null;
+      let enabledSet = null;
+
       try {{
         const res = await fetch(origin + '/_pylon/bootstrap', {{ mode: 'cors' }});
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const boot = await res.json();
+        name = boot.server_name || name;
+        status = 'ok';
+        detail = boot.mode || 'connected';
         if (boot.catalog_url) catalogUrl = boot.catalog_url;
         if (Array.isArray(boot.enabled_apps) && boot.enabled_apps.length) {{
           enabledSet = new Set(boot.enabled_apps);
         }}
-        setStatus((boot.server_name || origin) + ' · ' + catalogUrl, 'ok');
       }} catch (err) {{
-        setStatus('Offline (' + origin + ') · default catalog', 'warn');
+        detail = 'offline (' + err.message + ')';
       }}
+
+      let apps = [];
       try {{
         const catRes = await fetch(catalogUrl);
         const cat = await catRes.json();
-        allApps = cat.apps || [];
-        renderTree(document.getElementById('q').value);
-
-        const hashId = location.hash ? location.hash.slice(1) : '';
-        const targetId = hashId || activeAppId || localStorage.getItem(LAST_APP_KEY) || '';
-        const found = allApps.find(a => a.id === targetId && a.has_page);
-        if (found) selectApp(found, false);
-      }} catch (err) {{
-        document.getElementById('tree').textContent = 'Failed to load catalog: ' + err;
+        apps = cat.apps || [];
+      }} catch (_) {{
+        try {{
+          const fbRes = await fetch(BASE + '/catalogs/catalog.json');
+          const fb = await fbRes.json();
+          apps = fb.apps || [];
+        }} catch (_) {{}}
       }}
+
+      serverState.set(origin, {{ origin, name, status, detail, catalogUrl, apps, enabledSet }});
+      renderTree();
+      tryRestoreSelection(origin, apps);
+    }}
+
+    function tryRestoreSelection(origin, apps) {{
+      if (activeKey) return;
+      try {{
+        const saved = JSON.parse(localStorage.getItem(LAST_SEL_KEY) || 'null');
+        if (saved && saved.origin === origin) {{
+          const found = apps.find(a => a.id === saved.id && a.has_page);
+          if (found) selectApp(origin, found, false);
+        }}
+      }} catch (_) {{}}
+    }}
+
+    function addServer(rawOrigin) {{
+      const norm = normalizeOrigin(rawOrigin);
+      if (!norm) return;
+      if (!servers.includes(norm)) {{
+        servers.unshift(norm);
+        saveServers();
+      }}
+      collapsedSet.delete('srv:' + norm);
+      saveCollapsed();
+      loadServer(norm);
     }}
 
     document.getElementById('server-form').addEventListener('submit', e => {{
       e.preventDefault();
-      const norm = normalizeOrigin(document.getElementById('server-url').value);
-      if (!norm) {{
-        setStatus('Invalid server URL', 'warn');
-        return;
-      }}
-      try {{ localStorage.setItem(STORAGE_KEY, norm); }} catch (_) {{}}
-      connectServer(norm);
+      const input = document.getElementById('server-url');
+      addServer(input.value);
+      input.value = '';
     }});
-    document.getElementById('preset-vm').addEventListener('click', () => {{
-      try {{ localStorage.setItem(STORAGE_KEY, DEFAULT_SERVER); }} catch (_) {{}}
-      connectServer(DEFAULT_SERVER);
-    }});
-    document.getElementById('preset-local').addEventListener('click', () => {{
-      const localOrigin = 'http://127.0.0.1:8910';
-      try {{ localStorage.setItem(STORAGE_KEY, localOrigin); }} catch (_) {{}}
-      connectServer(localOrigin);
-    }});
+    document.getElementById('preset-vm').addEventListener('click', () => addServer(DEFAULT_VM));
+    document.getElementById('preset-local').addEventListener('click', () => addServer(DEFAULT_LOCAL));
+    document.getElementById('btn-refresh-all').addEventListener('click', () => servers.forEach(loadServer));
     document.getElementById('toggle-all').addEventListener('click', e => {{
       const groups = [...document.querySelectorAll('#tree .tree-group')];
       const anyOpen = groups.some(g => !g.classList.contains('collapsed'));
@@ -588,8 +713,11 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       const frame = document.getElementById('app-frame');
       if (frame.src) frame.src = frame.src;
     }});
-    document.getElementById('q').addEventListener('input', e => renderTree(e.target.value));
-    connectServer(currentServer());
+    document.getElementById('q').addEventListener('input', renderTree);
+
+    servers = loadSavedServers();
+    saveServers();
+    servers.forEach(loadServer);
   </script>
 </body>
 </html>
@@ -698,7 +826,7 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
             "  try{\n"
             "    var qp=new URLSearchParams(location.search).get('server');\n"
             "    var raw=qp||localStorage.getItem('pylon.server_origin')||'';\n"
-            "    if(raw){var u=new URL(raw.trim());if(u.protocol==='http:'||u.protocol==='https:'){resolved=u.origin;if(qp)localStorage.setItem('pylon.server_origin',resolved);}}\n"
+            "    if(raw){var u=new URL(raw.trim());if(u.protocol==='http:'||u.protocol==='https:'){resolved=u.origin;}}\n"
             "  }catch(_){}\n"
             "  window.PYLON_API_ORIGIN=resolved;\n"
             f"  window.PYLON_STATIC_BASE={json.dumps(base_path)};\n"
