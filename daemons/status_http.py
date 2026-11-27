@@ -177,17 +177,17 @@ def resolve_status_port(
     daemon_mode: str = "client",
     default_port: int = 18772,
 ) -> int | None:
-    """Return desired status port, or None if disabled.
+    """Return desired status port, or None if explicitly disabled.
 
-    In `server` mode, `platform/daemon_manager` on the Pylon HTTP server shows
-    daemon status, so the daemon-only HTTP server is OFF by default.
-    In `client` mode, it listens on loopback (default 18772).
+    Enabled by default in both `client` and `server` modes on loopback (default 18772)
+    so the static workspace UI can always inspect local daemon status.
+    Set PYLON2_DAEMON_STATUS_PORT=0 or status_port=0 to disable.
     """
     raw = os.environ.get("PYLON2_DAEMON_STATUS_PORT")
     if raw is None and isinstance(cfg, dict):
         raw = cfg.get("status_port")
     if raw is None or raw == "":
-        return None if daemon_mode in ("server", "full") else default_port
+        return default_port
     s = str(raw).strip().lower()
     if s in ("0", "off", "false", "no", "none", "disabled"):
         return None

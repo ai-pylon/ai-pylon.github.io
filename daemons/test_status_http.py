@@ -74,7 +74,7 @@ class StatusHttpTest(unittest.TestCase):
         self.assertIsNone(status_http.resolve_status_port({"status_port": 0}))
         self.assertIsNone(status_http.resolve_status_port({"status_port": "off"}))
         self.assertEqual(status_http.resolve_status_port({}, daemon_mode="client", default_port=18772), 18772)
-        self.assertIsNone(status_http.resolve_status_port({}, daemon_mode="server", default_port=18772))
+        self.assertEqual(status_http.resolve_status_port({}, daemon_mode="server", default_port=18772), 18772)
         self.assertEqual(status_http.resolve_status_port({"status_port": 18775}, daemon_mode="server"), 18775)
 
     def test_client_config_post_normalizes_and_invokes_callback(self) -> None:
