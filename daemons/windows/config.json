@@ -1,0 +1,13 @@
+{
+  "endpoint_id": "win-local",
+  "mode": "server",
+  "server_port": 8910,
+  "data_dir": "~/pylon-server/data",
+  "local_owner": true,
+  "reconnect_min_s": 1,
+  "reconnect_max_s": 30,
+  "cdp_debug_url": "auto",
+  "edge_headless": true,
+  "edge_stop_on_exit": false,
+  "tray_autostart": true
+}

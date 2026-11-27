@@ -1,0 +1,74 @@
+--- a/apps/platform/work_runner/impl/worker.py
++++ b/apps/platform/work_runner/impl/worker.py
+@@ -563,7 +563,7 @@
+     _log.info("work_runner drain loop started")
+ 
+ 
+-def submit(target="remote", kind="run", host="", timeout=60, **fields):
++def submit(target="remote", kind="run", host="", timeout=60, idempotency_key=None, **fields):
+     """Enqueue a job; returns the job dict.
+ 
+     AUTO-DERIVED TIMEOUT for op jobs (REMOTE_RUNTIME #9): a kind='op' job's default
+@@ -600,6 +600,18 @@
+         if k in fields and fields[k] not in (None, "", {}):
+             job[k] = fields[k]
+     with state.lock:
++        if idempotency_key:
++            import hashlib
++            import json
++            payload = {k: v for k, v in job.items() if k not in ("id", "status", "submitted_ts")}
++            fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
++            for previous in state.queue + state.history:
++                if previous.get("_submission_key") == idempotency_key:
++                    if previous.get("_submission_fingerprint") != fingerprint:
++                        raise ValueError("idempotency_key was already used with a different submission")
++                    return previous
++            job["_submission_key"] = idempotency_key
++            job["_submission_fingerprint"] = fingerprint
+         state.queue.append(job)
+     state.save_queue()
+     _WAKE.set()  # #16: wake the drain loop immediately (don't wait out an idle back-off)
+--- a/apps/platform/work_runner/impl/core.py
++++ b/apps/platform/work_runner/impl/core.py
+@@ -202,8 +202,20 @@
+             timeout = max(timeout, int(_human) + 60)
+     except (TypeError, ValueError):
+         pass
+-    job = worker.submit(target=target, kind=kind, host=host,
+-                        timeout=timeout, **fields)
++    submission_key = a.get("idempotency_key")
++    if submission_key is not None:
++        if not isinstance(submission_key, str) or not submission_key or len(submission_key) > 200:
++            return {"ok": False, "_error": "idempotency_key must be a nonempty string of at most 200 characters"}
++        import hashlib
++        import json
++        identity = ctx.get("user_id") or ctx.get("user") or ctx.get("session_id") or ""
++        caller = hashlib.sha256(json.dumps(identity, sort_keys=True, default=str).encode()).hexdigest()
++        submission_key = caller + ":" + submission_key
++    try:
++        job = worker.submit(target=target, kind=kind, host=host,
++                            timeout=timeout, **({"idempotency_key": submission_key} if submission_key else {}), **fields)
++    except ValueError as exc:
++        return {"ok": False, "_error": str(exc)}
+     try:                                    # ROUND4 #29: the jobs channel sees new jobs too
+         from framework import events as _events
+         _events.publish("jobs", "submitted", {"job_id": job.get("id", ""), "kind": kind, "app": job.get("app"),
+@@ -348,7 +360,7 @@
+     ops.op("submit", _submit, facets=["in_process", "http", "tool"], safety="confirm",
+            tool={"name": "work_runner.submit",
+                  "description": "Enqueue a background job (returns immediately — the new job id is at result.job.id, NOT result.job_id — poll with get {job_id}). target=local|remote, kind=run|copy|op. A kind=op job runs another app's op in the background (fields app/op/args); its timeout defaults to 600s (op jobs are queued BECAUSE they're slow — a mkdoc/fia compile is minutes), run/copy default to 60s, and either is AUTO-LIFTED to cover a long human-gated op when args carry human_timeout_s/timeout (+60s margin). A timeout KILL is flagged distinctly on the job (timed_out=true) so it's not mistaken for an op error. Remote run/copy jobs go via platform/remote_runner.",
+-                 "params": {"target": "local|remote (default local)", "kind": "run|copy|op (default run)", "host": "alias/host (remote)", "cmd": "command (run)", "src": "copy source", "dest": "copy dest", "direction": "up|down (remote copy)", "cwd": "working dir (local run)", "app": "app id (op)", "op": "op name (op)", "args": "op args (op)", "isolate": "bool (op) - run the op in its own Python process (a long CPU-bound decode never holds the host's GIL / stalls its loop); calls to other apps go to the host over HTTP", "script": "inline script text (optional)", "env_files": "map {relpath: vfs_source} (optional)", "timeout": "secs (default 600 for op jobs, 60 for run/copy; auto-lifted for a human budget)"}},
++                 "params": {"idempotency_key": "optional submission key; deduplicates matching submissions retained in queue/history", "target": "local|remote (default local)", "kind": "run|copy|op (default run)", "host": "alias/host (remote)", "cmd": "command (run)", "src": "copy source", "dest": "copy dest", "direction": "up|down (remote copy)", "cwd": "working dir (local run)", "app": "app id (op)", "op": "op name (op)", "args": "op args (op)", "isolate": "bool (op) - run the op in its own Python process (a long CPU-bound decode never holds the host's GIL / stalls its loop); calls to other apps go to the host over HTTP", "script": "inline script text (optional)", "env_files": "map {relpath: vfs_source} (optional)", "timeout": "secs (default 600 for op jobs, 60 for run/copy; auto-lifted for a human budget)"}},
+            description="Enqueue a background job.")
+     _ro("status", _status, {"name": "work_runner.status", "description": "Queue overview: pending/running jobs + recent history + counts.", "params": {}})
+     _ro("list", _list, {"name": "work_runner.list", "description": "List jobs (which=queue|history|all) as SUMMARY rows: op_result elided (has_op_result/op_ok flags), stdout/stderr tail-capped, big args shortened - use get for a full job, or full=true.", "params": {"which": "queue|history|all (default all)", "limit": "history cap (default 50)", "full": "bool (optional) - whole job records"}})
+--- a/apps/platform/work_runner/manifest.json
++++ b/apps/platform/work_runner/manifest.json
+@@ -97,6 +97,7 @@
+           "isolate": "bool (kind=op) - run the op in its own Python process (a long CPU-bound decode never holds the host's GIL / stalls its loop); calls to other apps go to the host over HTTP",
+           "quick": "bool (optional) - a SHORT job: may use the fast-lane slot (WORK_RUNNER_FAST_SLOTS, default 1) when the normal slots are busy with long jobs; also implied by timeout <= 120 s",
+           "label": "human label (optional)",
++          "idempotency_key": "optional submission key; reuses a matching job while retained in queue/history; changed payload is rejected",
+           "timeout": "secs (default 60)"
+         }
+       }

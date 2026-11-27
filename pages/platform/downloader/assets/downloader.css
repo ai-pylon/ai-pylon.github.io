@@ -1,0 +1,52 @@
+/* Downloader — full AppUI layout */
+.dl-nav{padding:8px 6px;display:flex;flex-direction:column;gap:2px}
+.dl-navitem{padding:8px 12px;font-size:13px;color:var(--text-secondary);border-radius:var(--radius-sm);cursor:pointer}
+.dl-navitem:hover{background:var(--bg-active);color:var(--text-primary)}
+.dl-navitem.active{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--text-primary);font-weight:600}
+
+.dl-content{padding:16px 18px;max-width:1000px;overflow:auto}
+.dl-h1{font-size:15px;font-weight:600;color:var(--text-primary);margin:0 0 12px}
+.dl-card{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-elevated);padding:10px 12px;margin-bottom:12px}
+.dl-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.dl-row input,.dl-row select{background:var(--bg);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:7px 10px;font-size:13px}
+.dl-row input.grow{flex:1;min-width:220px}
+.dl-row label{font-size:12px;color:var(--text-muted);display:flex;gap:5px;align-items:center}
+.dl-row button{background:var(--bg);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:7px 14px;font-size:12px;cursor:pointer}
+.dl-row button.primary{background:var(--accent);color:var(--text-inverse);border-color:transparent}
+.dl-row button:disabled{opacity:.5;cursor:default}
+.dl-muted{color:var(--text-muted);font-size:12px}
+.dl-log{margin:6px 0 0;padding:8px;font-size:11px;font-family:ui-monospace,Consolas,monospace;white-space:pre-wrap;
+  word-break:break-word;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);max-height:40vh;overflow:auto;color:var(--text-secondary)}
+.empty{color:var(--text-muted);padding:18px;text-align:center;font-size:12px}
+
+.dl-list{display:flex;flex-direction:column;gap:6px}
+
+/* history rows */
+.dl-hrow{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);padding:7px 10px}
+.dl-hmain{display:flex;gap:8px;align-items:baseline}
+.dl-src{flex:0 0 auto;font-size:11px;color:var(--text-inverse);background:var(--accent);border-radius:3px;padding:0 6px}
+.dl-fn{flex:1;min-width:0;color:var(--text-primary);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-hmeta{font-size:11px;color:var(--text-muted);margin-top:3px}
+.dl-path{font-family:ui-monospace,Consolas,monospace}
+.dl-hsha{font-size:10px;color:var(--text-muted);font-family:ui-monospace,Consolas,monospace;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-hact{margin-top:5px;display:flex;gap:6px}
+.dl-hact button{background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:11px;padding:2px 8px;cursor:pointer}
+
+/* routing rows */
+.dl-rrow{display:flex;gap:8px;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--bg);padding:6px 10px;font-size:12px}
+.dl-rglob{font-family:ui-monospace,Consolas,monospace;color:var(--text-primary)}
+.dl-rfield{color:var(--text-muted)}
+.dl-rarrow{color:var(--text-muted)}
+.dl-rdest{flex:1;min-width:0;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dl-rrow button{background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);font-size:11px;padding:2px 8px;cursor:pointer}
+
+/* sources rows */
+.dl-srow{display:flex;gap:8px;align-items:center;padding:6px 10px;font-size:13px;border-bottom:1px solid var(--border)}
+.dl-sdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dl-sdot.ok{background:#3ba55d}.dl-sdot.off{background:var(--text-muted)}
+.dl-sname{flex:0 0 auto;color:var(--text-primary);font-weight:600}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>Node Sync (HTTP) — pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <link rel="stylesheet" href="assets/node_sync.css?v=1&amp;pa=1">
+</head>
+<body data-auto-init="false" data-page-id="system-node-sync" data-page-title="Node Sync">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation', 'shell'].forEach(function (b) { window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js'; });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell');
+  </script>
+  <script src="assets/node_sync.js?v=1&amp;pa=1"></script>
+</body>
+</html>

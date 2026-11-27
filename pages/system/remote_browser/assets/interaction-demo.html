@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Remote Browser · Interaction Lab</title>
+<link rel="stylesheet" href="interaction-demo.css">
+<script src="interaction-demo.js" defer></script>
+</head>
+<body>
+<header><div><p class="eyebrow">PYLON / REMOTE BROWSER</p><h1>Interaction lab</h1><p>Test standard browser controls on a local fixture. No external requests, login, or input content recording.</p></div><button id="reset" type="button">Reset tests</button></header>
+<main>
+<section class="panel"><h2>Click &amp; focus</h2><p>Click the button, double-click the tile, or focus a field.</p><div class="row"><button id="click" type="button">Click me</button><button id="double" type="button">Double-click me</button><label><input type="checkbox" id="check"> Checkbox</label></div><output id="click-result">No clicks yet</output></section>
+<section class="panel"><h2>Native range slider</h2><p>Move the slider to any value, using mouse or keyboard.</p><div class="row"><input id="range" aria-label="Native range slider" type="range" min="0" max="100" value="35"><output id="range-value">35</output></div><progress id="progress" max="100" value="35"></progress></section>
+<section class="panel"><h2>Pointer drawing</h2><p>Press and move within the pad to draw a freehand line. Release to end a stroke.</p><canvas id="pad" width="560" height="160" aria-label="Freehand drawing pad"></canvas><output id="pad-result">0 strokes · 0 held moves</output></section>
+<section class="panel"><h2>Native drag and drop</h2><p>Move either card between the two containers. The browser handles standard HTML drag events.</p><div class="zones"><div class="zone" data-zone="A"><strong>Column A</strong><div class="tile" id="tile-a" draggable="true" tabindex="0">Card A</div><div class="tile" id="tile-b" draggable="true" tabindex="0">Card B</div></div><div class="zone" data-zone="B"><strong>Column B</strong></div></div><output id="drop-result">0 drops</output></section>
+<section class="panel"><h2>Text selection &amp; keyboard</h2><p id="select-text">Select part of this paragraph by dragging across the words. Try the arrow keys and keyboard shortcuts in the field below.</p><textarea id="typing" rows="3" placeholder="Type sample text here" aria-label="Test text field"></textarea><output id="text-result">Selection: 0 characters</output></section>
+<section class="panel"><h2>Scrolling &amp; native controls</h2><label>Choose an option <select id="choice"><option>Alpha</option><option>Beta</option><option>Gamma</option></select></label><div id="scrollbox" class="scrollbox" tabindex="0" aria-label="Scrollable content"></div><output id="scroll-result">Scroll position: 0%</output></section>
+<section class="panel wide"><h2>Event diagnostics</h2><p>Counts of DOM events observed by this page. No keys, text, coordinates, credentials, or page contents are logged.</p><div id="counts" class="counts" aria-live="off"></div><p id="last" role="status">No events yet</p></section>
+</main>
+</body>
+</html>

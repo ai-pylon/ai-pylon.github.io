@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AppUI runtime regression tests</title>
+<button id="opener">Open</button>
+<div id="already-inert" inert>Originally inert</div>
+<pre id="results">Running</pre>
+<script>
+window.__runtimeErrors = [];
+window.addEventListener('error', event => window.__runtimeErrors.push(event.message));
+window.APPUI_BASE = '/appui/';
+</script>
+<script src="/appui/loader.js"></script>
+<script>
+(async () => {
+  const checks = [];
+  const check = (name, value) => {checks.push({name, pass: !!value});};
+  const next = () => new Promise(resolve => setTimeout(resolve, 80));
+  try {
+    const start = performance.now();
+    await AppUIAssets.load('foundationCore');
+    const coreMs = performance.now() - start;
+    check('core services load without modal or menu components', window.AppUIApi && window.AppUILifecycle && !window.AppUIDialog && !window.AppUIMenu);
+    const framing = window.AppUIStreamEvents;
+    await AppUIAssets.load('streamEvents');
+    check('streamEvents compatibility bundle reuses the core parser', window.AppUIStreamEvents === framing);
+    const state = AppUIReactiveState.create();
+    state.set('a', 1);
+    state.derived('b', ['a'], a => a * 2);
+    state.derived('c', ['b'], b => b + 1);
+    state.batch(() => {state.set('a', 2); state.batch(() => state.set('a', 3));});
+    check('nested state batches propagate through derived chains', state.get('c') === 7);
+    state.destroy();
+    const tokens = [];
+    const payloadCallbacks = {onText: token => tokens.push(token)};
+    AppUICore.parseSSE('data: first\r\ndata: second\r\n\r\n', payloadCallbacks);
+    check('chat uses shared multiline SSE framing', tokens.length === 1 && tokens[0] === 'first\nsecond');
+    await AppUIAssets.load('dialog', 'menu', 'statusbar');
+    check('UI families can load independently', window.AppUIDialog && window.AppUIMenu && window.AppUIStatusBar);
+
+    const util = AppUITextUtils;
+    for (const html of ['<img src=x onerror=alert(1)>', '<a href="javascript:alert(1)">click</a>', '<svg onload=alert(1)>x</svg>']) {
+      const output = util.sanitizeHtml(html);
+      check('legacy sanitizer removes active markup: ' + html, !/onerror|onload|javascript:|<svg/i.test(output));
+    }
+    check('legacy sanitizer preserves safe markup', util.sanitizeHtml('<strong>safe</strong>') === '<strong>safe</strong>');
+    check('legacy sanitizer retains text limit behavior', util.sanitizeHtml('<b>abcdef</b>', 3) === 'abc...');
+
+    const opener = document.getElementById('opener');
+    opener.focus();
+    const first = AppUIDialog.show({title: 'First', body: 'Buttons only', buttons: [{text: 'Cancel'}, {text: 'Continue', primary: true}]});
+    await next();
+    check('button-only modal focuses the primary action', document.activeElement.textContent === 'Continue');
+    check('background becomes inert', opener.inert && document.getElementById('already-inert').inert);
+    const dynamic = document.createElement('button'); dynamic.textContent = 'Dynamic background'; document.body.append(dynamic);
+    await next();
+    check('new background children become inert', dynamic.inert);
+    const buttons = first.querySelectorAll('button');
+    buttons[buttons.length - 1].focus();
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', bubbles: true, cancelable: true}));
+    check('Tab wraps to the first control', document.activeElement === buttons[0]);
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab', shiftKey: true, bubbles: true, cancelable: true}));
+    check('Shift-Tab wraps to the last control', document.activeElement === buttons[buttons.length - 1]);
+    const returnTarget = document.activeElement;
+    const second = AppUIDialog.show({title: 'Second', body: 'Nested'});
+    check('nested modal isolates the earlier modal', first.inert && !second.inert);
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true}));
+    check('Escape closes only the top dialog', !second.isConnected && first.isConnected);
+    check('closing nested modal restores its opener', document.activeElement === returnTarget && !first.inert);
+    AppUIDialog.close(first);
+    check('closing last modal restores page focus and inert values', document.activeElement === opener && !opener.inert && document.getElementById('already-inert').inert && !dynamic.inert);
+    dynamic.remove();
+
+    const parent = AppUIDialog.show({title: 'Parent'});
+    const child = AppUIDialog.show({title: 'Child', buttons: [], closable: false});
+    AppUIDialog.close(parent);
+    check('closing a background modal preserves current focus', child.contains(document.activeElement));
+    AppUIDialog.close(child);
+    const controller = new AbortController();
+    const abortable = AppUIDialog.show({title: 'Abortable', signal: controller.signal});
+    controller.abort();
+    check('aborting restores background interactivity', !abortable.isConnected && !opener.inert);
+    await next();
+    await AppUIAssets.load('foundation', 'shell');
+    check('compatibility foundation and shell retain public APIs', window.AppUI && window.AppUIShell && window.AppUIRouter && window.AppUIDialog);
+    const nativeFetch = window.fetch, nativeSocket = window.WebSocket;
+    const saves = [];
+    let finishBlocked;
+    window.fetch = async (input, options) => {
+      const url = String(input?.url || input);
+      if (url.endsWith('/v1/apps/qa/blocked')) return new Promise(resolve => {finishBlocked = resolve;});
+      if (url.endsWith('/api/config.set')) saves.push(JSON.parse(options.body));
+      return new Response('{}', {headers: {'Content-Type': 'application/json'}});
+    };
+    try {
+      await AppUIAssets.load('runtimeServices');
+      check('network runtime bundle loads with queue and retry wrappers', window._apiQueue && window.AppUIWebSocket);
+      _apiQueue.max = 1;
+      const active = fetch('/v1/apps/qa/blocked');
+      await Promise.resolve();
+      const cancel = new AbortController();
+      const queued = fetch('/v1/apps/qa/queued', {signal: cancel.signal}).catch(error => error.name);
+      cancel.abort();
+      check('v1 requests queue and abort without hanging', await queued === 'AbortError' && _apiQueue.pending === 0);
+      finishBlocked(new Response('{}')); await active;
+      await AppUIConfigStore.init('qa.runtime.config');
+      AppUIConfigStore.set('value', 'saved'); await AppUIConfigStore.flush();
+      check('configuration acknowledgment clears pending state', AppUIConfigStore.getStatus().pending === 0 && saves.some(save => save.key === 'qa.runtime.config.value'));
+      const sockets = [];
+      window.WebSocket = class {
+        static OPEN = 1;
+        constructor() {this.readyState = 0; this.bufferedAmount = 0; this.sent = []; sockets.push(this);}
+        close() {this.readyState = 3;}
+        send(value) {this.sent.push(value);}
+      };
+      const socket = new AppUIWebSocket('wss://fixture', {heartbeatInterval: 0, maxQueuedMessages: 1});
+      const oldClose = sockets[0].onclose;
+      check('WebSocket buffering rejects overflow', socket.send('first') && socket.send('second') === false);
+      socket.reconnect(); oldClose({code: 1000, reason: ''});
+      sockets[1].readyState = 1; sockets[1].onopen();
+      check('WebSocket reconnect ignores obsolete close and drains the queue', socket.connected && sockets.length === 2 && sockets[1].sent[0] === 'first');
+      socket.close();
+      AppUIStorage.remove('cfg:qa.runtime.config.value');
+    } finally {window.fetch = nativeFetch; window.WebSocket = nativeSocket;}
+    check('bundle execution produced no script errors', !window.__runtimeErrors.length);
+    window.__runtimeTiming = {coreMs, allMs: performance.now() - start};
+  } catch (error) {
+    checks.push({name: String(error.stack || error), pass: false});
+  }
+  window.__runtimeResults = checks;
+  document.getElementById('results').textContent = JSON.stringify({checks, errors: window.__runtimeErrors, timing: window.__runtimeTiming});
+  document.title = checks.every(check => check.pass) ? 'PASS' : 'FAIL';
+})();
+</script>

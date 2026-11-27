@@ -1,0 +1,98 @@
+/* VFS — page-local styles on AppUI theme tokens. */
+.vfs-content { padding: 18px; max-width: 980px; margin: 0 auto; }
+.vfs-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.vfs-bar input { flex: 1; background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 13px;
+  font-family: ui-monospace, monospace; }
+.vfs-bar button { background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+  padding: 7px 14px; font-size: 13px; cursor: pointer; }
+.vfs-bar button.sec { background: var(--bg-hover); color: var(--text-primary);
+  border: 1px solid var(--border); }
+.vfs-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+.vfs-hint code { background: var(--bg-hover); padding: 1px 5px; border-radius: 4px; }
+
+.fs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fs-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.fs-table tr:hover td { background: var(--bg-hover); cursor: pointer; }
+.fs-table .sz { color: var(--text-muted); font-size: 12px; text-align: right; width: 90px; }
+.fs-table .mt { color: var(--text-muted); font-size: 12px; width: 150px; }
+.fs-icon { color: var(--text-muted); width: 18px; display: inline-block; }
+
+.out { margin-top: 12px; font-family: ui-monospace, monospace; font-size: 11px;
+  white-space: pre-wrap; word-break: break-word; background: var(--bg-hover);
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+  max-height: 340px; overflow: auto; color: var(--text-primary); }
+.out:empty { display: none; }
+.empty { color: var(--text-muted); font-size: 13px; padding: 18px 0; text-align: center; }
+.reach { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding: 1px 7px;
+  border-radius: 10px; background: var(--bg-hover); color: var(--text-muted); margin-left: 6px; }
+.reach.fs { background: rgba(76,175,80,.18); color: #2e9e40; }
+.reach.ssh { background: var(--accent-muted); color: var(--accent); }
+.reach.mount { background: rgba(245,197,24,.18); color: #b7791f; }
+
+.mounts-box { background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.mounts-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mounts-head b { color: var(--text-primary); font-size: 13px; }
+.mounts-head .spacer { flex: 1; }
+.mounts-head input { width: 320px; background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font-size: 12px; }
+.mounts-head button { background: var(--bg-hover); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
+.mounts-empty { color: var(--text-muted); font-size: 12px; padding: 4px 0; }
+.mount-row { display: flex; align-items: center; gap: 8px; padding: 5px 4px;
+  border-top: 1px solid var(--border); font-size: 13px; color: var(--text-primary); cursor: pointer; }
+.mount-row:hover { background: var(--bg-hover); }
+.mount-row .badge { flex: 0 0 auto; }
+.mount-row .mp { color: var(--text-muted); font-size: 12px; }
+.mount-row .unmnt { margin-left: auto; font-size: 11px; padding: 2px 8px; background: transparent;
+  border: 1px solid var(--border); color: var(--text-secondary); border-radius: 5px; cursor: pointer; }
+
+/* #30: immediate listing spinner so a slow cloud-mount root doesn't paint blank */
+.vfs-loading { color: var(--text-muted); font-style: italic; }
+.vfs-loading::before { content: "⏳ "; font-style: normal; }
+
+/* #20: mount liveness dot */
+.health-dot { font-size: 11px; color: var(--text-muted); }
+.health-dot.ok { color: #2e7d32; }
+.health-dot.bad { color: #c62828; }
+
+/* #18: mount-a-web-service wizard */
+.wizard-box { padding: 10px; border: 1px solid var(--border); border-radius: 6px;
+  margin: 8px 0; background: var(--bg-subtle, rgba(0,0,0,.02)); }
+.wizard-title { font-weight: 600; margin-bottom: 8px; }
+.wizard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px; }
+.wizard-pick { text-align: left; padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-primary); cursor: pointer; display: flex;
+  flex-direction: column; gap: 3px; }
+.wizard-pick:hover { background: var(--bg-hover); }
+.wizard-pick b { font-size: 13px; }
+.wizard-pick span { font-size: 11px; color: var(--text-muted); }
+.wizard-detail { margin-top: 10px; font-size: 12px; }
+.wizard-cred { margin-top: 4px; color: var(--text-secondary); }
+.wizard-loading { color: var(--text-muted); font-style: italic; }
+
+/* mount name field (optional alias) */
+.mnt-name { flex: 0 0 150px; min-width: 110px; }
+
+/* mount scope tags + info/edit panel */
+.scope-tag { font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-right: 4px;
+  background: var(--bg-subtle, #eef); color: var(--text-secondary, #456); text-transform: uppercase; }
+.scope-group { background: #e7f0ff; color: #1c5fb0; }
+.scope-host { background: #fff0e0; color: #a05a00; }
+.scope-repo { background: #e9f7e9; color: #2e7d32; }
+.rw-tag { font-size: 10px; color: #c62828; border: 1px solid #c62828; border-radius: 4px; padding: 0 4px; }
+.mnt-info { margin-left: 4px; }
+.mnt-info-tbl { font-size: 12px; margin: 6px 0; border-collapse: collapse; }
+.mnt-info-tbl td { padding: 2px 10px 2px 0; vertical-align: top; }
+.mnt-info-tbl td:first-child { color: var(--text-muted, #888); white-space: nowrap; }
+.mnt-edit { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.mnt-edit input[type=text], .mnt-edit input:not([type]) { padding: 4px 8px; border: 1px solid var(--border, #ccd); border-radius: 5px; }
+.mi-ro { font-size: 12px; color: var(--text-secondary, #456); display: flex; align-items: center; gap: 3px; }
+
+/* left-sidebar tree (This PC · Mounts · Providers) */
+.vfs-treewrap { height: 100%; overflow: auto; padding: 4px; box-sizing: border-box; }
+.vfs-tree { padding: 2px; }
+.vfs-tree-tag { margin-left: auto; padding-left: 6px; font-size: 9px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .04em; }

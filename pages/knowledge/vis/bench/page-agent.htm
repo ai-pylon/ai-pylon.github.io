@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>VIS Bench — Page agent — pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <style>
+    #app-content-body{padding:16px}
+    .pi-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg,10px);padding:14px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+    .pi-card h3{font-size:13px;margin:0 0 10px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em}
+    .pi-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    .pi-sub{font-size:12px;color:var(--text-muted);margin-top:6px}
+    .pi-pill{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--bg-secondary);color:var(--text-secondary)}
+    .pi-pill.on{color:var(--color-success)} .pi-pill.off{color:var(--color-error)}
+    .pi-card input,.pi-card select,.pi-card textarea{color:var(--text-primary);background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm,5px);padding:6px 9px;font-size:13px;font-family:inherit}
+    .pi-grid{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;align-items:center;margin-top:6px}
+    .pi-grid-l{font-size:12px;color:var(--text-secondary);text-align:right}
+    .pi-msg{padding:8px 10px;border-radius:6px;margin-top:8px;font-size:12px}
+    .pi-ok{background:var(--accent-muted);color:var(--color-success)}
+  </style>
+</head>
+<body data-auto-init="false" data-page-id="knowledge-vis-pageagent" data-page-title="VIS Bench — Page agent">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation','shell'].forEach(function (b) {
+      window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js';
+    });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell');
+  </script>
+  <script src="../assets/page-agent.js?v=1&amp;pa=1"></script>
+</body>
+</html>

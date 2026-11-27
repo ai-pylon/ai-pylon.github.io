@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terminal (xterm) — pylon-server</title>
+<link rel="stylesheet" href="assets/xterm/xterm.css">
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:#10151e;color:#e2e8f0;font:14px system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 16px;background:#1b2534;border-bottom:1px solid #334155}
+.bar strong{font-size:15px}.bar .grow{flex:1}#status{color:#94a3b8}
+button{border:1px solid #475569;background:#273449;color:#fff;padding:7px 12px;border-radius:7px;cursor:pointer}
+button:hover{background:#334155}button:disabled{opacity:.5;cursor:default}
+a{color:#93c5fd}
+form.conn{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 16px;background:#152030;border-bottom:1px solid #334155}
+form.conn input,form.conn select{background:#0b1220;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:6px 8px}
+form.conn input[name=host]{width:15em}form.conn input[name=port]{width:5.5em}form.conn input[name=username]{width:9em}
+form.conn label{color:#cbd5e1;display:flex;gap:4px;align-items:center}
+main{flex:1;min-height:0;padding:10px 12px;display:flex;flex-direction:column}
+.terminal{flex:1;min-height:0;background:#070b11;border:1px solid #334155;border-radius:10px;padding:8px}
+#terminal{height:100%;width:100%;overflow:hidden}#terminal .xterm{height:100%}#terminal .xterm-viewport{overflow-y:auto!important}
+p.note{color:#94a3b8;margin:8px 4px 0;font-size:12.5px}
+button:focus-visible,a:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+</style></head><body>
+<header class="bar"><strong>Terminal</strong><span id="status">not connected</span><span class="grow"></span>
+<button id="connect" form="conn" type="submit">Connect</button><button id="interrupt" disabled>Ctrl+C</button><button id="close" disabled>Disconnect</button>
+<a href="./">Command terminal</a></header>
+<form class="conn" id="conn" autocomplete="off">
+<select name="mode" id="mode" aria-label="kind"><option value="ssh">SSH</option><option value="local" id="localopt">Local shell</option></select>
+<input name="host" placeholder="host (e.g. seli.example.com)" aria-label="host">
+<input name="port" type="number" min="1" max="65535" value="22" aria-label="port">
+<input name="username" placeholder="user" aria-label="user">
+<input name="password" type="password" placeholder="password (not stored)" aria-label="password" autocomplete="new-password">
+<label><input type="checkbox" name="use_server_keys">use the server's SSH keys</label></form>
+<main><div class="terminal"><div id="terminal" aria-label="Interactive terminal"></div></div>
+<p class="note">An interactive terminal in the browser: SSH to any host from wherever this server runs, or a shell on this machine.
+A password is used once to connect and never stored. An unknown host key is trusted only after you confirm its fingerprint; a changed one is refused.</p></main>
+<script src="assets/xterm/xterm.js"></script>
+<script>
+'use strict';
+const $=x=>document.getElementById(x),enc=new TextEncoder(),API='xterm/';
+let sid=null,reading=false,writeQueue=Promise.resolve();
+const terminal=new Terminal({cursorBlink:true,fontFamily:'Consolas,Menlo,monospace',fontSize:14,
+  theme:{background:'#070b11',foreground:'#d2f4d0',cursor:'#93c5fd'},scrollback:5000,convertEol:false,allowProposedApi:false});
+terminal.open($('terminal'));
+function b64(bytes){let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s)}
+function from64(s){const t=atob(s),a=new Uint8Array(t.length);for(let i=0;i<t.length;i++)a[i]=t.charCodeAt(i);return a}
+async function post(action,data){return fetch(API+action,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
+async function api(action,data){const r=await post(action,data);const j=await r.json();if(!r.ok)throw Error(j.error||r.status);return j}
+function state(on,msg){$('connect').disabled=on;$('close').disabled=!on;$('interrupt').disabled=!on;$('status').textContent=msg||(on?'connected':'disconnected')}
+function size(){const el=$('terminal'),font=terminal.options.fontSize||14,
+  cols=Math.max(20,Math.min(300,Math.floor((el.clientWidth-8)/(font*.61)))),rows=Math.max(5,Math.min(100,Math.floor((el.clientHeight-8)/(font*1.22))));
+  terminal.resize(cols,rows);if(sid)api('resize',{id:sid,cols,rows}).catch(()=>{})}
+async function send(text){const id=sid;if(!id)return;const bytes=enc.encode(text);
+  for(let o=0;o<bytes.length;o+=2048)await api('write',{id,data:b64(bytes.slice(o,o+2048))})}
+terminal.onData(text=>{writeQueue=writeQueue.then(()=>send(text)).catch(e=>terminal.writeln('\r\n[input error: '+e.message+']'))});
+async function poll(id){if(reading)return;reading=true;const dec=new TextDecoder();
+  while(sid===id){try{const r=await api('read',{id});if(r.data)terminal.write(dec.decode(from64(r.data),{stream:true}));
+    if(!r.alive){terminal.writeln('\r\n[session ended]');break}}catch(e){terminal.writeln('\r\n[connection error: '+e.message+']');break}
+    await new Promise(r=>setTimeout(r,80))}
+  if(sid===id){sid=null;state(false)}reading=false}
+async function startSession(req){const r=await post('start',req);const j=await r.json();
+  if(r.status===409&&j.fingerprint){
+    if(!confirm('This host key is not known yet.\n\n'+j.host+'\n'+j.key_type+'  '+j.fingerprint+'\n\nTrust it only if this fingerprint is right. Trust and connect?'))throw Error('host key not trusted');
+    return startSession({...req,trust:j.fingerprint})}
+  if(!r.ok)throw Error(j.error||r.status);return j}
+$('conn').onsubmit=async ev=>{ev.preventDefault();const f=$('conn'),req={cols:terminal.cols,rows:terminal.rows};
+  if($('mode').value==='ssh'){req.host=f.host.value.trim();req.port=Number(f.port.value||22);req.username=f.username.value.trim();
+    if(f.password.value)req.password=f.password.value;req.use_server_keys=f.use_server_keys.checked;
+    if(!req.host||!req.username){$('status').textContent='enter a host and a user';return}}
+  else req.mode='local';
+  $('status').textContent='connecting…';
+  try{const r=await startSession(req);f.password.value='';sid=r.id;terminal.clear();state(true);size();terminal.focus();poll(sid)}
+  catch(e){$('status').textContent=e.message}};
+function modeChanged(){const ssh=$('mode').value==='ssh';for(const n of ['host','port','username','password','use_server_keys'])$('conn')[n].disabled=!ssh}
+$('mode').onchange=modeChanged;
+fetch(API+'info',{credentials:'same-origin'}).then(r=>r.json()).then(i=>{
+  if(!i.local)$('localopt').remove();
+  else if(!i.ssh||new URLSearchParams(location.search).get('mode')==='local'){$('mode').value='local';modeChanged()}
+  if(!i.ssh)$('status').textContent='paramiko is not installed on this server (SSH unavailable)';
+  const h=new URLSearchParams(location.search);if(h.get('host'))$('conn').host.value=h.get('host');if(h.get('user'))$('conn').username.value=h.get('user');
+}).catch(()=>{});
+$('close').onclick=async()=>{const id=sid;sid=null;state(false);if(id)try{await api('close',{id})}catch(e){terminal.writeln(e.message)}};
+$('interrupt').onclick=()=>send('\x03').catch(e=>terminal.writeln(e.message));
+window.addEventListener('resize',size);
+window.addEventListener('pagehide',()=>{if(sid){const id=sid;sid=null;fetch(API+'close',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}).catch(()=>{})}});
+size();terminal.writeln('Ready. Pick SSH or a local shell and press Connect.');
+</script></body></html>

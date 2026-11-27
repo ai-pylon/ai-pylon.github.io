@@ -1,0 +1,25 @@
+.ir-content{padding:14px;max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.ir-stats{display:flex;gap:14px;font-size:12px;color:var(--text-muted);padding:6px 2px;flex-wrap:wrap}
+.ir-stats b{color:var(--text-primary)}
+.ir-file{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ir-file select,.ir-file input{background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 9px;font-size:13px}
+.ir-file input{flex:1;min-width:180px}
+.ir-file button{background:var(--accent);color:var(--text-inverse);border:1px solid transparent;
+  border-radius:var(--radius-sm);padding:6px 14px;font-size:12px;cursor:pointer}
+.ir-detail{width:100%;box-sizing:border-box;background:var(--bg-elevated);color:var(--text-primary);
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 9px;font-size:13px;resize:vertical}
+.ir-note{font-size:12px;color:var(--text-muted);min-height:16px}
+.ir-tabs{display:flex;gap:4px}
+.ir-tabs button{background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;cursor:pointer}
+.ir-tabs button.active{background:var(--accent);color:var(--text-inverse);border-color:var(--accent)}
+.ir-list{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);padding:6px;min-height:140px;max-height:56vh;overflow:auto}
+.empty{color:var(--text-muted);padding:16px;text-align:center;font-size:12px}
+.ir-row{display:flex;gap:10px;align-items:center;padding:5px 6px;font-size:12px;border-bottom:1px solid var(--border)}
+.ir-kind{flex:0 0 96px;color:var(--text-muted);font-family:ui-monospace,Consolas,monospace}
+.ir-sev{flex:0 0 60px;font-size:10px;font-weight:700}
+.ir-crit{color:var(--color-warning,#d92d3a)}.ir-high{color:#e8873a}.ir-med{color:var(--text-secondary)}.ir-low{color:var(--text-muted)}
+.ir-title{flex:1;min-width:0;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ir-status{flex:0 0 auto;color:var(--text-muted);font-family:ui-monospace,Consolas,monospace}
+.ir-row button{flex:0 0 auto;padding:3px 8px;font-size:11px;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer}

@@ -1,0 +1,9 @@
+.tray-page {padding:20px;display:grid;gap:16px;align-content:start;overflow:auto}
+.tray-columns {display:grid;grid-template-columns:minmax(340px,1fr) minmax(400px,1.5fr);gap:20px}
+.tray-panel {display:grid;gap:12px;align-content:start;min-width:0}
+.tray-table {height:440px;min-height:200px}
+.tray-editor {min-height:300px}
+.tray-note {color:var(--text-secondary,#999);margin:0}
+.tray-message {min-height:1.5em;margin:0}
+.tray-message[data-error="true"] {color:var(--danger,#e66)}
+@media(max-width:1000px){.tray-columns{grid-template-columns:1fr}}

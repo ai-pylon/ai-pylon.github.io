@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>Tool Catalog - pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <link rel="stylesheet" href="tool_catalog.css?v=1">
+</head>
+<body data-auto-init="false" data-page-id="platform-tool_catalog" data-page-title="Tool Catalog">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+  <script>
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell', 'toolbar', 'tree', 'graphInteractions', 'feedback',
+                                         'dataTable', 'splitter', 'contextMenu');
+    window.AppUIReady
+      .then(function () { return AppUIAssets.loadModule('catalog.js?v=4'); })
+      .catch(function (err) {
+        var el = document.getElementById('app-content-body') || document.body;
+        el.textContent = 'Tool Catalog failed to load: ' + (err && err.message || err);
+        el.style.cssText = 'color:var(--color-error,#c0392b);padding:16px;white-space:pre-wrap';
+      });
+  </script>
+</body>
+</html>

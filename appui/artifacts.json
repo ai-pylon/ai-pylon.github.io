@@ -1,0 +1,55 @@
+{
+  "page_assets": {
+    "appui-shim.js": {
+      "sources": [
+        "src/portable-shim/*.js"
+      ],
+      "join": "verbatim",
+      "minify": true
+    },
+    "account.js": {
+      "sources": [
+        "src/account/common/00_head.js",
+        "src/account/auth/10_identity.js",
+        "src/account/common/20_navigation.js",
+        "src/account/common/21_user.js",
+        "src/account/common/30_dialog.js",
+        "src/account/auth/31_presentation.js",
+        "src/account/common/32_wire.js",
+        "src/account/auth/33_session_actions.js",
+        "src/account/auth/34_button.js",
+        "src/account/common/40_styles.js",
+        "src/account/auth/50_session.js",
+        "src/account/common/60_mount.js",
+        "src/account/auth/61_mount_policy.js",
+        "src/account/auth/90_exports.js"
+      ],
+      "join": "verbatim",
+      "minify": true
+    },
+    "account-claimed.js": {
+      "sources": [
+        "src/account/common/00_head.js",
+        "src/account/claimed/10_identity.js",
+        "src/account/common/20_navigation.js",
+        "src/account/common/21_user.js",
+        "src/account/common/30_dialog.js",
+        "src/account/claimed/31_presentation.js",
+        "src/account/common/32_wire.js",
+        "src/account/claimed/33_session_actions.js",
+        "src/account/claimed/34_button.js",
+        "src/account/common/40_styles.js",
+        "src/account/common/60_mount.js",
+        "src/account/claimed/61_mount_policy.js",
+        "src/account/claimed/90_exports.js"
+      ],
+      "join": "verbatim",
+      "minify": true
+    }
+  },
+  "mirrors": {
+    "account-claimed.js": [
+      "apps/documents/sysdoc_converter/page/viewer/account.js"
+    ]
+  }
+}

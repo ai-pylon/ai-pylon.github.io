@@ -1,0 +1,33 @@
+/* CDP Inspector — page-local styles on AppUI theme tokens. */
+.cdp-content { padding: 18px; max-width: 900px; margin: 0 auto; }
+.cdp-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.cdp-row input { flex: 1 1 320px; background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; font-size: 13px; }
+.cdp-row button { background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+  padding: 7px 14px; font-size: 13px; cursor: pointer; }
+.cdp-row button.sec { background: var(--bg-hover); color: var(--text-primary);
+  border: 1px solid var(--border); }
+.lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-muted); margin: 14px 0 6px; }
+.tab { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 6px; font-size: 12px; cursor: pointer; }
+.tab:hover { border-color: var(--accent); } .tab.sel { border-color: var(--accent); }
+.tab .ti { font-weight: 600; color: var(--text-primary); }
+.tab .tu { color: var(--text-muted); word-break: break-all; }
+.out { background: var(--bg-hover); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px; font-size: 12px; overflow: auto; max-height: 300px; white-space: pre-wrap;
+  font-family: ui-monospace, monospace; color: var(--text-primary); }
+.out:empty { display: none; }
+.empty { color: var(--text-muted); font-size: 13px; padding: 18px 0; text-align: center; }
+
+.browser-status { font-size: 12px; padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;
+  border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-secondary);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.browser-status .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted);
+  flex: 0 0 auto; }
+.browser-status.ok { border-color: rgba(76,175,80,.4); }
+.browser-status.ok .dot { background: #2e9e40; }
+.browser-status.bad { border-color: rgba(217,45,58,.4); color: #d92d3a; }
+.browser-status.bad .dot { background: #d92d3a; }
+.browser-status b { color: var(--text-primary); }
+.browser-status .muted { color: var(--text-muted); font-size: 11px; }

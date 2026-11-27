@@ -1,0 +1,13 @@
+.wk-content { padding: 20px; }
+.wk-card { max-width: 480px; background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.wk-row { display: flex; align-items: center; gap: 10px; }
+.wk-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted); }
+.wk-dot.on { background: #4caf50; } .wk-dot.off { background: #9099a1; }
+.wk-state { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.wk-actions { display: flex; gap: 8px; }
+.wk-actions button { font-size: 13px; padding: 7px 14px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-hover); color: var(--text-primary); cursor: pointer; }
+.wk-actions button:hover { border-color: var(--accent); }
+.wk-opt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+.wk-meta { font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 10px; }

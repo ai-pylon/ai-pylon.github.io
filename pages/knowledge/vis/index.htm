@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>VIS — Virtual Information System — pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <style>
+    .vb { padding: 20px 24px 40px; max-width: 1240px; margin: 0 auto; }
+    .vb * { box-sizing: border-box; }
+    .vb-hero { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; border: 1px solid var(--border);
+      border-radius: var(--radius-xl, 16px); padding: 22px 24px; margin-bottom: 18px;
+      background:
+        radial-gradient(800px 240px at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+        radial-gradient(600px 220px at 100% 0%, color-mix(in srgb, #10b981 16%, transparent), transparent 70%),
+        var(--bg-elevated); }
+    .vb-ic { width: 56px; height: 56px; flex: 0 0 auto; display: grid; place-items: center; font-size: 28px;
+      border-radius: 16px; background: var(--bg-primary); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+    .vb-main { flex: 1 1 380px; min-width: 0; }
+    .vb-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+    .vb-main h1 { margin: 2px 0 6px; font-size: 24px; letter-spacing: -.01em; color: var(--text-primary); }
+    .vb-main p { margin: 0 0 10px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); max-width: 760px; }
+    .vb-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .vb-pill { font-size: 11px; padding: 3px 9px; border-radius: 999px; background: var(--bg-primary);
+      border: 1px solid var(--border); color: var(--text-secondary); }
+    .vb-pill.mono { font-family: var(--font-mono, ui-monospace, monospace); }
+    .vb-search { flex: 0 1 320px; min-width: 240px; align-self: center; }
+    .vb-search input { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--bg-primary); color: var(--text-primary); font-size: 14px; outline: none; box-shadow: var(--shadow-sm); }
+    .vb-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-muted); }
+    .vb-search input:disabled { opacity: .55; }
+    .vb-hint { font-size: 11px; color: var(--text-muted); margin-top: 5px; padding-left: 4px; }
+    .vt-wrap { padding: 6px 4px; height: 100%; overflow: auto; }
+    .vt-count { margin-left: auto; padding-left: 6px; font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    @media (max-width: 640px) { .vb { padding: 14px 12px 30px; } .vb-main h1 { font-size: 20px; } }
+  </style>
+</head>
+<body data-auto-init="false" data-page-id="knowledge-vis" data-page-title="VIS — Virtual Information System">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation','shell','tree','visExplorer','feedback','aiSidebar'].forEach(function (b) {
+      window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js';
+    });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell');
+  </script>
+  <script src="assets/vis.js?v=5&amp;pa=1"></script>
+</body>
+</html>

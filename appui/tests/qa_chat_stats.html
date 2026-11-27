@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>appui chat stats-footer QA</title></head>
+<body>
+<!-- Hermetic QA for the chat stats footer's token/throughput formatter
+     (ai/llm_server TODO: token/throughput + cost estimate in the stats footer).
+     Loads ONLY content/chat-stream-view.js (the _AppUIChatStreamView object
+     literal has no load-time deps) and drives its pure formatStats(meta). No
+     mount, no backend. -->
+<script src="../src/content/chat-stream-view.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script>
+(function () {
+  function ready() { return !!(window._AppUIChatStreamView && typeof _AppUIChatStreamView.formatStats === 'function'); }
+  window.__qa = {
+    ready: ready,
+    appLoadErr: function () { return !!window.__APP_LOAD_ERR; },
+    fmt: function (meta) { return _AppUIChatStreamView.formatStats(meta); }
+  };
+})();
+</script>
+</body>
+</html>

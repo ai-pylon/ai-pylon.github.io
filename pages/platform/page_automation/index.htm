@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>Page Automation — pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <link rel="stylesheet" href="assets/page_automation.css">
+</head>
+<body data-auto-init="false" data-page-id="platform-page-automation" data-page-title="Page Automation">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation','shell'].forEach(function (b) {
+      window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js';
+    });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell');
+  </script>
+  <!-- Load the page script with a per-load cache-bust so a browser-cached
+       index.htm never pins stale JS. (These assets are NOT under /appui/ so the
+       AppUI service worker does not cache them; this defeats ordinary HTTP
+       caching.) -->
+  <script>
+    (function () {
+      var version = Date.now();
+      window.AppUIReady.then(function () {
+        return AppUIScriptLoader.load('assets/page_automation-editors.js?t=' + version);
+      }).then(function () {
+        return AppUIScriptLoader.load('assets/page_automation-runs.js?t=' + version);
+      }).then(function () {
+        return AppUIScriptLoader.load('assets/page_automation-mirror.js?t=' + version);
+      }).then(function () {
+        return AppUIScriptLoader.load('assets/page_automation-shots.js?t=' + version);
+      }).then(function () {
+        return AppUIScriptLoader.load('assets/page_automation-filmstrip.js?t=' + version);
+      }).then(function () {
+        return AppUIScriptLoader.load('assets/page_automation.js?t=' + version);
+      });
+    })();
+  </script>
+</body>
+</html>

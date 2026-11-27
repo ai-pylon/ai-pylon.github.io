@@ -1,0 +1,23 @@
+/* platform/tool_kiro - shared AppUI theme variables only */
+.tk-body { padding: 12px 18px; overflow: auto; height: 100%; box-sizing: border-box; }
+.tk-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tk-head h2 { margin: 0; font-size: var(--font-lg, 16px); }
+.tk-pill { font-size: 11px; padding: 1px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--text-secondary); }
+.tk-pill.on { border-color: var(--color-success); color: var(--color-success); }
+.tk-pill.bad { border-color: var(--color-error); color: var(--color-error); }
+.tk-dim { color: var(--text-muted); font-size: var(--font-sm, 12px); }
+.tk-bad { color: var(--color-error); }
+.tk-btns { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.tk-btns button { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-md, 6px); padding: 5px 12px; cursor: pointer; font-size: var(--font-sm, 12px); }
+.tk-btns button.primary { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+.tk-pre { white-space: pre-wrap; word-break: break-word; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); padding: 10px 12px; font-size: 12px; max-height: 60vh; overflow: auto; }
+.tk-kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: var(--font-sm, 12px); margin: 8px 0; }
+.tk-kv b { color: var(--text-secondary); font-weight: 600; }
+.tk-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 10px 0; }
+.tk-card { border: 1px solid var(--border); border-radius: var(--radius-md, 6px); padding: 10px 12px; background: var(--bg-secondary); cursor: pointer; text-align: left; color: var(--text-primary); }
+.tk-card:hover { border-color: var(--accent); }
+.tk-card b { font-size: 20px; display: block; }
+.tk-form { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+.tk-form input { flex: 1; min-width: 260px; padding: 5px 8px; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-md, 6px); }
+.tk-badge { margin-left: auto; font-size: 10px; color: var(--text-muted); padding-left: 6px; }
+.tk-badge.on { color: var(--color-success); }

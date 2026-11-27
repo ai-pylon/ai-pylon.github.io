@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>appui retrieval footer QA</title></head>
+<body>
+<!-- Hermetic BROWSER QA for NEXT5 #12: the shared retrieval footer
+     (AppUIChatUI.buildRetrievalFooter) shown under an assistant answer. Loads
+     the REAL runtime/core.js + content/chat-ui.js (same stub preamble as
+     qa_chat_copy.html) and asserts: providers + mkdoc legs render; a `skipped`
+     OBJECT renders as "leg [..] - reason" (not [object Object]); per-citation
+     links carry data-rel/path/line/uri; clicking one dispatches a bubbling
+     'appui:chat-cite' CustomEvent a host can catch; the COMPACTED (agent-capped)
+     shape still renders; non-RAG output yields no footer. No backend. -->
+<div id="host"></div>
+<script>
+window.AppUILifecycle = { createScope: function () {
+  var fns = [];
+  return { listen: function (el, ev, fn) { el.addEventListener(ev, fn); },
+           add: function (fn) { fns.push(fn); },
+           destroy: function () { fns.forEach(function (f) { try { f(); } catch (e) {} }); },
+           destroyed: false };
+} };
+window._AppUIChatMemory = {
+  getMemories: function () { return []; }, addMemory: function () {},
+  deleteMemory: function () {}, buildMemoryContext: function () { return ''; },
+  detectRememberCommand: function () { return null; }, detectAIRememberResponse: function () { return null; }
+};
+window.AppUITextUtils = window.AppUITextUtils || { esc: function (s) { return s == null ? '' : String(s); } };
+window._AppUICoreStream = { parseSSE: function () {}, streamChat: function () {} };
+window._AppUICoreSteering = { queue: function () {}, interrupt: function () {} };
+window.AppUITheme = { toggle: function () {}, set: function () {}, restore: function () {} };
+</script>
+<script src="../src/runtime/markdown.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script src="../src/runtime/core.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script src="../src/content/chat-ui.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script>
+(function () {
+  var FULL = { ok: true,
+    retrieval: { namespaces: ["ws:RRP", "code:ebb"], passages: 2, mode: "hybrid",
+                 providers: ["mom"], provider_hits: 0, mkdoc_targets: ["SFNDF.1078"], mkdoc_hits: 3,
+                 skipped: [{ leg: "providers", providers: ["mom"], reason: "no hits (provider unreachable)" }],
+                 timings_ms: { retrieve: 42 } },
+    passages: [{ n: 1, file: "docs/a.md", title: "A", line: 12, uri: "ws://RRP/docs/a.md#L12", path: "/w/RRP/docs/a.md", text: "x" },
+               { n: 2, file: "docs/b.md", title: "B", uri: "ws://RRP/docs/b.md", text: "y" }] };
+  var COMPACT = { ok: true, _compacted: true, retrieval: { namespaces: ["ws:RRP"], passages: 1 },
+                  passages: [{ n: 1, file: "docs/c.md", line: 7, uri: "ws://RRP/docs/c.md#L7" }] };
+  function footer(o) {
+    var rf = AppUIChatUI.buildRetrievalFooter([{ name: "workspace_rag.context", status: "ok", output: JSON.stringify(o) }]);
+    return rf;
+  }
+  window.__qa = {
+    ready: function () { return !!(window.AppUIChatUI && AppUIChatUI.buildRetrievalFooter); },
+    appLoadErr: function () { return !!window.__APP_LOAD_ERR; },
+    fullText: function () { var f = footer(FULL); return f ? f.textContent : ""; },
+    citeAttrs: function () {
+      var f = footer(FULL); if (!f) return "[]";
+      return JSON.stringify([].map.call(f.querySelectorAll("a.ai-chat-cite"), function (a) {
+        return { rel: a.getAttribute("data-rel"), line: a.getAttribute("data-line"),
+                 uri: a.getAttribute("data-uri"), path: a.getAttribute("data-path") };
+      }));
+    },
+    clickCite: function () {
+      var host = document.getElementById("host"); host.innerHTML = "";
+      var f = footer(FULL); host.appendChild(f);
+      var got = null;
+      host.addEventListener("appui:chat-cite", function (ev) { got = ev.detail; }, { once: true });
+      var a = f.querySelector("a.ai-chat-cite"); if (a) a.click();
+      return JSON.stringify(got);
+    },
+    compactText: function () { var f = footer(COMPACT); return f ? f.textContent : ""; },
+    compactCites: function () { var f = footer(COMPACT); return f ? f.querySelectorAll("a.ai-chat-cite").length : -1; },
+    nonRag: function () {
+      return AppUIChatUI.buildRetrievalFooter([{ name: "fs_read", output: "plain text" }]) === null;
+    }
+  };
+})();
+</script>
+</body>
+</html>

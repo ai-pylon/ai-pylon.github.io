@@ -1,0 +1,59 @@
+/* Connection (SSH/SFTP) — page-local styles on AppUI theme tokens. */
+.conn-content { padding: 18px; max-width: 980px; margin: 0 auto; }
+.conn-section { background: var(--bg-elevated); border: 1px solid var(--border);
+                border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.conn-section h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-primary); }
+
+.conn-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.conn-form input, .conn-form select {
+  background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 13px; }
+.conn-form input.host { flex: 1 1 260px; }
+.conn-form input.narrow { width: 90px; }
+.conn-form button, .conn-content button.go {
+  background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+  padding: 6px 15px; font-size: 13px; cursor: pointer; }
+.conn-form button:disabled { opacity: .5; cursor: default; }
+.conn-form .keyrow { flex: 1 1 100%; }
+.conn-form textarea { width: 100%; min-height: 72px; font-family: ui-monospace, monospace;
+  font-size: 11px; background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 8px; }
+
+.conn-list { list-style: none; margin: 0; padding: 0; }
+.conn-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px;
+  border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-primary); }
+.conn-list li:last-child { border-bottom: 0; }
+.conn-list .dot { width: 9px; height: 9px; border-radius: 50%; }
+.conn-list .dot.up { background: #2e9e40; } .conn-list .dot.down { background: var(--text-muted); }
+.conn-list .meta { color: var(--text-muted); font-size: 12px; margin-left: auto; }
+.conn-list button { background: transparent; border: 1px solid var(--border);
+  color: var(--text-secondary); border-radius: 5px; font-size: 11px; padding: 3px 8px; cursor: pointer; }
+
+.fs-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.fs-bar input { flex: 1; background: var(--input-bg, #fff); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; font-size: 13px; }
+.fs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fs-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
+.fs-table tr:hover td { background: var(--bg-hover); cursor: pointer; }
+.fs-table .sz { color: var(--text-muted); font-size: 12px; text-align: right; width: 90px; }
+.fs-icon { color: var(--text-muted); width: 18px; display: inline-block; }
+
+.out { margin-top: 10px; font-family: ui-monospace, monospace; font-size: 11px;
+  white-space: pre-wrap; word-break: break-word; background: var(--bg-hover);
+  border: 1px solid var(--border); border-radius: 6px; padding: 10px;
+  max-height: 300px; overflow: auto; }
+.out:empty { display: none; }
+.empty { color: var(--text-muted); font-size: 13px; padding: 18px 0; text-align: center; }
+.rc-ok { color: #2e9e40; } .rc-bad { color: #d92d3a; }
+
+/* saved-host registry */
+.conn-list .alias { font-weight: 600; color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace; flex: 0 0 auto; min-width: 72px; }
+.conn-list .meta { margin-left: 0; flex: 1; }
+.conn-list li > span:nth-child(2) { color: var(--text-secondary); font-size: 12px; }
+
+/* saved-host test result */
+.conn-list .meta.ok   { color: #2e9e40; }
+.conn-list .meta.bad  { color: #d92d3a; }
+.conn-list .meta.warn { color: #b7791f; }
+.conn-list .meta.testing { color: var(--text-muted); font-style: italic; }

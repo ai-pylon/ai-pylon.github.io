@@ -1,0 +1,29 @@
+.rr-content{padding:14px;max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.rr-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rr-bar select,.rr-bar input{background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 9px;font-size:13px}
+.rr-bar input{flex:1;min-width:180px;font-family:ui-monospace,Consolas,monospace}
+.rr-bar button,.rr-form button{background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 12px;font-size:12px;cursor:pointer}
+.rr-bar button:hover,.rr-form button:hover{border-color:var(--accent)}
+.rr-form button.primary{background:var(--accent);color:var(--text-inverse);border-color:transparent}
+.rr-form button.danger,.rr-job button.danger{background:var(--color-warning,#b7791f);color:var(--text-inverse,#fff);border-color:transparent}
+.rr-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.rr-tabs button{background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;cursor:pointer}
+.rr-tabs button.active{background:var(--accent);color:var(--text-inverse);border-color:var(--accent)}
+.rr-form{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.rr-form input{flex:1;background:var(--bg-elevated);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:6px 9px;font-size:13px;font-family:ui-monospace,Consolas,monospace}
+.rr-out{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);padding:10px;
+  font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--text-primary);max-height:46vh;overflow:auto;margin:0}
+.empty{color:var(--text-muted);padding:18px;text-align:center;font-size:12px}
+.rr-note{font-size:12px;color:var(--text-muted);min-height:16px}
+.rr-jobs{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.rr-job{display:flex;gap:10px;align-items:center;padding:6px 8px;font-size:12px;border-bottom:1px solid var(--border)}
+.rr-st{flex:0 0 70px;font-size:10px;font-weight:700;letter-spacing:.03em}
+.rr-run{color:var(--color-success,#4caf50)}.rr-done{color:var(--text-muted)}
+.rr-jid{flex:1;font-family:ui-monospace,Consolas,monospace;color:var(--text-primary)}
+.rr-rc{flex:0 0 auto;color:var(--text-muted);font-family:ui-monospace,Consolas,monospace}
+.rr-job button{padding:3px 8px;font-size:11px}
+#rr-joblog{margin-top:8px}

@@ -1,0 +1,1504 @@
+{
+  "schema_version": 1,
+  "count": 68,
+  "page_count": 63,
+  "apps": [
+    {
+      "id": "file/disk",
+      "group": "file",
+      "name": "disk",
+      "title": "Disk Monitor",
+      "category": "system/inspect",
+      "description": "Disk inspection on the Windows endpoint: per-volume usage (free/used/percent), per-process write-byte I/O counters (who's writing to disk), and which process holds a given file open (Restart Manager). Environment-agnostic: the OS-bound ctypes work lives in cap:desktop.diskmon (endpoint daemon); the app degrades cleanly to 'unavailable' with no endpoint. All read_only — this app never writes. (The v1 real-time ETW file-write tracer needs elevation and is not surfaced.)",
+      "tags": [
+        "inspect"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/file/disk",
+      "has_api": true,
+      "page": null,
+      "has_page": false,
+      "needs_apps": []
+    },
+    {
+      "id": "file/drive_manager",
+      "group": "file",
+      "name": "drive_manager",
+      "title": "Drive Manager",
+      "category": "file/storage",
+      "description": "Native AppUI workspace for the owner’s Google Drive: file browser, folder tree, indexed galleries and documents, search, upload, organizing and share administration. The existing Drive service retains OAuth, data and write authorization; bounded assistant writes require explicit confirmation.",
+      "tags": [
+        "storage"
+      ],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/file/drive_manager",
+      "has_api": true,
+      "page": "/pages/file/drive_manager/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "file/drive_share",
+      "group": "file",
+      "name": "drive_share",
+      "title": "Drive Share",
+      "category": "file/storage",
+      "description": "Public, read-only sharing of DriveManager folders: visitors with a share link browse the shared folder, view photos (gallery, map), download when allowed, and upload when the share permits it. Everything a visitor does goes through DriveManager's loopback-only internal share API, which checks the token, password, expiry, selected files and ancestry; this app holds no Google credentials. Shares are created in DriveManager. Moved from the pylon-server DriveShare service.",
+      "tags": [
+        "storage"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/file/drive_share",
+      "has_api": true,
+      "page": "/pages/file/drive_share/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "file/gdrive",
+      "group": "file",
+      "name": "gdrive",
+      "title": "Google Drive",
+      "category": "file/storage",
+      "description": "Google Drive file operations via the Drive API v3 (OAuth2 installed-app or service account). List/search/download files, and (confirm-gated) upload/mkdir/delete. OAuth client-secrets are sourced from the platform/credential vault (credential name 'gdrive-oauth-client', overridable via config.credential_name) — store them once with credential.set instead of hand-editing config.json; a config.json credentials_path still works as a fallback. The Google client libraries are optional — status reports actionable setup guidance when they or credentials aren't configured, rather than crashing. Token cache under repo data/.",
+      "tags": [
+        "storage"
+      ],
+      "workspace": {
+        "role": "fetcher"
+      },
+      "api": "/v1/apps/file/gdrive",
+      "has_api": true,
+      "page": "/pages/file/gdrive/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "file/vfs",
+      "group": "file",
+      "name": "vfs",
+      "title": "VFS (Virtual File System)",
+      "category": "file",
+      "description": "Location-transparent file access across backends via one self-describing URL: vfs://{endpoint}/{path}. endpoint carries its transport — file:///… or the self host (reach 'fs', this machine's real disk, in-process) or ssh://host (reach 'ssh', remote SFTP via the platform/auth_ssh app). One uniform op contract (list/tree/read/write/stat/mkdir/delete/rename) regardless of where the bytes live. Portable: no win32, no paramiko in this app — the SSH half is delegated app-to-app to platform/auth_ssh; the local half is stdlib os. Ported (minimal core) from remote_ws's VFS.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/file/vfs",
+      "has_api": true,
+      "page": "/pages/file/vfs/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_http",
+        "platform/auth_ssh",
+        "file/gdrive"
+      ]
+    },
+    {
+      "id": "knowledge/kb_core",
+      "group": "knowledge",
+      "name": "kb_core",
+      "title": "Personal KB Core",
+      "category": "knowledge/stores",
+      "description": "Core Personal Knowledge Base service: atomic UTF-8 bundle storage, personal annotations and collections, rebuildable SQLite FTS5 search, health audits, previewed reconciliation, AppUI viewer, and VIS provider.",
+      "tags": [
+        "knowledge",
+        "kb",
+        "search",
+        "archive",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/knowledge/kb_core",
+      "has_api": true,
+      "page": "/pages/knowledge/kb_core/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "knowledge/vis",
+      "group": "knowledge",
+      "name": "vis",
+      "title": "VIS — Virtual Information System",
+      "category": "knowledge/stores",
+      "description": "The VIS layer: navigate HIERARCHICAL information (the tool catalog, MOM, a doc set, a code repo) one level at a time. An LLM can't read a large tree at once, so VIS lets it open a node, read its children's descriptions, and choose where to go next — multi-turn, progressive retrieval at a flat token cost per turn. Providers declare a `vis_provider` manifest block (children/node/search primitives), the framework aggregates them, and this app implements the navigation operators (open/expand/search/ancestors/…) + multi-turn session operators (focus/collapse/view) once, identical across providers. Addresses are vis://<provider>/<path>. Read-only by contract.",
+      "tags": [
+        "store"
+      ],
+      "workspace": {
+        "role": "manager",
+        "comment": "VIS #41: knowledge/vis is the MANAGER of the VIS layer — it aggregates every provider's primitives and owns the navigation operators the workspace/sidebar use."
+      },
+      "api": "/v1/apps/knowledge/vis",
+      "has_api": true,
+      "page": "/pages/knowledge/vis/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/tool_catalog",
+        "knowledge/knowledge_base"
+      ]
+    },
+    {
+      "id": "personal/book",
+      "group": "personal",
+      "name": "book",
+      "title": "Book & Ebook Catalog",
+      "category": "personal/knowledge",
+      "description": "Book and ebook catalog with ISBN/ASIN identity, edition-verified Amazon HTML parsing, and reading notes.",
+      "tags": [
+        "book",
+        "ebook",
+        "isbn",
+        "amazon",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/book",
+      "has_api": true,
+      "page": "/pages/personal/book/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/fish",
+      "group": "personal",
+      "name": "fish",
+      "title": "Fish Market",
+      "category": "personal",
+      "description": "Compare seafood portions, prices and reviews from saved market research.",
+      "tags": [],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/personal/fish",
+      "has_api": true,
+      "page": "/pages/personal/fish/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "personal/gkeep",
+      "group": "personal",
+      "name": "gkeep",
+      "title": "Google Keep",
+      "category": "personal",
+      "description": "Collect the signed-in user's Google Keep notes and expose them as a searchable store + a VIS provider (notes grouped by label). Google Keep has no official API, so auth is Google's cookie-based SAPISIDHASH scheme: cookies are captured from the signed-in managed Edge via cap:system.browser.cookie (this app never drives the browser itself), then notes are fetched over plain HTTP from the private notes endpoint and stored in the app's own PylonDB realm (data/apps/personal/gkeep/keep.pylondb). Notes become browsable at vis://gkeep/<label>/<note> and their text is available for LLM/RAG. Reads are read_only; refresh/evict are confirm-gated writes into the realm.",
+      "tags": [],
+      "workspace": {
+        "role": "provider",
+        "comment": "VIS_PROVIDERS_TODO #6-#10: gkeep exposes its notes (grouped by label) to the workspace as the VIS provider 'gkeep'."
+      },
+      "api": "/v1/apps/personal/gkeep",
+      "has_api": true,
+      "page": "/pages/personal/gkeep/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/work_runner",
+        "ai/llm_server",
+        "system/cdp",
+        "platform/page_automation",
+        "platform/credential",
+        "system/notify",
+        "personal/googlevm"
+      ]
+    },
+    {
+      "id": "personal/googlevm",
+      "group": "personal",
+      "name": "googlevm",
+      "title": "Google VM",
+      "category": "personal/cloud",
+      "description": "Manage Google Compute Engine instances through the official API.",
+      "tags": [
+        "google-vm"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/personal/googlevm",
+      "has_api": true,
+      "page": "/pages/personal/googlevm/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_http",
+        "platform/credential",
+        "platform/auth_ssh",
+        "system/terminal"
+      ]
+    },
+    {
+      "id": "personal/googlevm_mcp",
+      "group": "personal",
+      "name": "googlevm_mcp",
+      "title": "pylon_mcp",
+      "category": "personal/cloud",
+      "description": "Deploy and manage the authenticated MCP endpoint on Google VM: service controls, logs, OAuth connection details and VM tools.",
+      "tags": [
+        "google-vm"
+      ],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/personal/googlevm_mcp",
+      "has_api": true,
+      "page": "/pages/personal/googlevm_mcp/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_ssh",
+        "platform/auth_http",
+        "platform/credential",
+        "personal/googlevm",
+        "platform/work_runner",
+        "file/vfs"
+      ]
+    },
+    {
+      "id": "personal/map",
+      "group": "personal",
+      "name": "map",
+      "title": "Saved Places & Map",
+      "category": "personal/knowledge",
+      "description": "Personal saved places, visited photo-location histories, reusable coordinate/address/place cache, and offline Haversine nearby search.",
+      "tags": [
+        "map",
+        "places",
+        "visits",
+        "naver-map",
+        "kakao-local",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/map",
+      "has_api": true,
+      "page": "/pages/personal/map/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core",
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "personal/movie",
+      "group": "personal",
+      "name": "movie",
+      "title": "Movie & AVDBS Catalog",
+      "category": "personal/media",
+      "description": "Movie and AVDBS metadata catalog with TMDB identity matching, conflict detection, and guarded rename plans.",
+      "tags": [
+        "movie",
+        "tmdb",
+        "avdbs",
+        "media",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/movie",
+      "has_api": true,
+      "page": "/pages/personal/movie/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/music_catalog",
+      "group": "personal",
+      "name": "music_catalog",
+      "title": "Music & Classical Catalog",
+      "category": "personal/music",
+      "description": "Music and Classical album metadata catalog with unambiguous intake matching and links to personal/music_player.",
+      "tags": [
+        "music",
+        "classical",
+        "albums",
+        "catalog",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/music_catalog",
+      "has_api": true,
+      "page": "/pages/personal/music_catalog/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/music_player",
+      "group": "personal",
+      "name": "music_player",
+      "title": "Music Player",
+      "category": "personal/music",
+      "description": "Browse and play your Google Drive music library through VFS, with a folder tree and playback queue.",
+      "tags": [
+        "music",
+        "audio",
+        "google-drive"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/music_player",
+      "has_api": true,
+      "page": "/pages/personal/music_player/",
+      "has_page": true,
+      "needs_apps": [
+        "file/vfs"
+      ]
+    },
+    {
+      "id": "personal/photo",
+      "group": "personal",
+      "name": "photo",
+      "title": "Photo Archive",
+      "category": "personal/media",
+      "description": "Personal photo archive with SHA-256 deduplication, EXIF/GPS extraction, thumbnails, logical folders, incoming intake planning, and private media streaming.",
+      "tags": [
+        "photo",
+        "exif",
+        "gps",
+        "gallery",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/photo",
+      "has_api": true,
+      "page": "/pages/personal/photo/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/shopping",
+      "group": "personal",
+      "name": "shopping",
+      "title": "Shopping Archive",
+      "category": "personal/knowledge",
+      "description": "Saved shopping products, Coupang option identities, structured JSON-LD parsing, and price observation history.",
+      "tags": [
+        "shopping",
+        "coupang",
+        "prices",
+        "reviews",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/shopping",
+      "has_api": true,
+      "page": "/pages/personal/shopping/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/travel_video",
+      "group": "personal",
+      "name": "travel_video",
+      "title": "Travel Video Studio",
+      "category": "personal/media",
+      "description": "Data-driven travel video storyboard projects, privacy-safe GPX track analysis (stays, speed candidates, endpoint trimming), and TTS/scene timeline builder.",
+      "tags": [
+        "travel",
+        "video",
+        "gpx",
+        "storyboard",
+        "remotion",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/travel_video",
+      "has_api": true,
+      "page": "/pages/personal/travel_video/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/web-naverblog",
+      "group": "personal",
+      "name": "web-naverblog",
+      "title": "Naver Blog",
+      "category": "personal",
+      "description": "Save public Naver Blog posts with ordered article text, local images and public comments; browse and search through VIS.",
+      "tags": [],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/personal/web-naverblog",
+      "has_api": true,
+      "page": "/pages/personal/web-naverblog/",
+      "has_page": true,
+      "needs_apps": [
+        "system/cdp",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "personal/web-navermap",
+      "group": "personal",
+      "name": "web-navermap",
+      "title": "Naver Places",
+      "category": "personal",
+      "description": "Naver map library: collections, discovery, full review capture and analysis, photos, visits, related blogs, multi-provider directions and route exports.",
+      "tags": [],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/personal/web-navermap",
+      "has_api": true,
+      "page": "/pages/personal/web-navermap/",
+      "has_page": true,
+      "needs_apps": [
+        "system/cdp",
+        "platform/work_runner",
+        "personal/web-naverblog",
+        "file/vfs",
+        "platform/credential",
+        "platform/auth_http",
+        "ai/llm_server"
+      ]
+    },
+    {
+      "id": "personal/web-youtube",
+      "group": "personal",
+      "name": "web-youtube",
+      "title": "YouTube Library",
+      "category": "personal",
+      "description": "Capture YouTube information on Google VM and expose fetched local copies through VIS.",
+      "tags": [
+        "google-vm"
+      ],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/personal/web-youtube",
+      "has_api": true,
+      "page": "/pages/personal/web-youtube/",
+      "has_page": true,
+      "needs_apps": [
+        "personal/googlevm_mcp",
+        "file/vfs",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "personal/web_archive",
+      "group": "personal",
+      "name": "web_archive",
+      "title": "Web Archive & Keep Queue",
+      "category": "personal/knowledge",
+      "description": "Capture and normalize web pages, FMKorea posts, and Naver Blog articles into Personal KB Core, manage the Google Keep ingestion seed queue, and detect duplicate web captures.",
+      "tags": [
+        "web",
+        "blog",
+        "fmkorea",
+        "naver-blog",
+        "google-keep",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/web_archive",
+      "has_api": true,
+      "page": "/pages/personal/web_archive/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "personal/youtube",
+      "group": "personal",
+      "name": "youtube",
+      "title": "YouTube Archive",
+      "category": "personal/media",
+      "description": "YouTube video metadata archive with regression-guarded dynamic comment and caption track merging.",
+      "tags": [
+        "youtube",
+        "video",
+        "captions",
+        "comments",
+        "personal-kb"
+      ],
+      "workspace": {
+        "role": "personal"
+      },
+      "api": "/v1/apps/personal/youtube",
+      "has_api": true,
+      "page": "/pages/personal/youtube/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/kb_core"
+      ]
+    },
+    {
+      "id": "platform/accounts",
+      "group": "platform",
+      "name": "accounts",
+      "title": "Accounts",
+      "category": "platform/shell",
+      "description": "Manage owner password and linked Google / GitLab identities. Authentication stays in the gateway.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/accounts",
+      "has_api": true,
+      "page": "/pages/platform/accounts/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/page_automation"
+      ]
+    },
+    {
+      "id": "platform/app_scenarios",
+      "group": "platform",
+      "name": "app_scenarios",
+      "title": "App Scenarios",
+      "category": "platform/tools",
+      "description": "Manage and run app SCENARIOS — each is a prompt tied to the op it resolves to, its args, and an expected-output assertion, stored in each app's manifest.json `scenarios` block (doubling as example prompts AND live acceptance tests). Two run modes per scenario: 'direct' (call the op and assert on its output) and 'llm' (drive the natural-language prompt through ai/llm_server with tools — a TRUE end-to-end test of the user path, where the model discovers + calls the tools itself, with vfs/tool support). list/add/remove scenarios and run them against the running framework. Write-op scenarios are authored preview-only so a run never fires a real mutation.",
+      "tags": [
+        "tools"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/app_scenarios",
+      "has_api": true,
+      "page": null,
+      "has_page": false,
+      "needs_apps": [
+        "ai/llm_server"
+      ]
+    },
+    {
+      "id": "platform/appui_guide",
+      "group": "platform",
+      "name": "appui_guide",
+      "title": "AppUI Guide",
+      "category": "platform/shell",
+      "description": "The 'how to build an app' hub: a live gallery that demonstrates each AppUI component (with runnable demos + the exact code + which bundle ships it), a one-click new-app scaffolder (wraps tools/new_app.py + hot-adds via /v1/admin/discover), and the framework docs surfaced in-page (AGENTS.md, the AppUI README, PANEL_CONTRACT.md).",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/appui_guide",
+      "has_api": true,
+      "page": "/pages/platform/appui_guide/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/app_scenarios"
+      ]
+    },
+    {
+      "id": "platform/auth_ftp",
+      "group": "platform",
+      "name": "auth_ftp",
+      "title": "Auth FTP (connection app)",
+      "category": "platform/connect",
+      "description": "The FTP CONNECTION app — owns all FTP connection logic: anonymous (and future credential-injected) GET/stream/listing over ftp://. Apps hold NO FTP transport; they call auth_ftp (directly, or via platform/downloader's `ftp` source plugin, which routes through this app the way the http/cpistore plugins route through auth_http). Anonymous public FTP (e.g. ftp.3gpp.org) works today; the per-host credential seam reads any secret from platform/credential (never stored/logged here). Pure stdlib (urllib) — no win32, no browser. Symmetric partner of platform/auth_http and platform/auth_ssh.",
+      "tags": [
+        "connection"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/auth_ftp",
+      "has_api": true,
+      "page": "/pages/platform/auth_ftp/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "platform/auth_http",
+      "group": "platform",
+      "name": "auth_http",
+      "title": "Auth HTTP (connection app)",
+      "category": "platform/connect",
+      "description": "The HTTP CONNECTION app — owns all HTTP connection logic: credential-injected fetch/write, browser-bound (MSAL/cookie) token acquisition, per-product auth-header + token-lifecycle PLUGINS, 401->refresh->retry, and live test/status. Apps hold NO connection logic; they call auth_http. The secret itself lives in platform/credential (the sealed vault): auth_http reads the raw secret in_process (token/master_get), builds the request with its own plugins, and persists a rotated token back via credential.put_rotated. Symmetric partner of platform/auth_ssh.",
+      "tags": [
+        "connection"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/auth_http",
+      "has_api": true,
+      "page": "/pages/platform/auth_http/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential",
+        "platform/page_automation"
+      ]
+    },
+    {
+      "id": "platform/auth_ssh",
+      "group": "platform",
+      "name": "auth_ssh",
+      "title": "Connection (SSH/SFTP)",
+      "category": "platform/connect",
+      "description": "Portable SSH/SFTP sessions + remote exec, lifted from remote_ws. Holds per-(user,host) in-RAM SSH credentials (password / private-key / agent) with idle TTL; keeps a persistent SSHClient per host (DNS TTL cache, preflight socket reuse, liveness probe, transient-only retry-with-backoff) and a DEDICATED SFTP transport with a per-connection channel queue (paramiko SFTPClient is not thread-safe). Pure paramiko + stdlib — no win32, no CDP. SSH credentials live only in process memory, never logged, never returned.",
+      "tags": [
+        "connection"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/auth_ssh",
+      "has_api": true,
+      "page": "/pages/platform/auth_ssh/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "platform/code_sync",
+      "group": "platform",
+      "name": "code_sync",
+      "title": "Code Sync",
+      "category": "platform",
+      "description": "Coordinate GitHub version history and Google Drive editable source exchange; stage incoming changes without changing active code.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/code_sync",
+      "has_api": true,
+      "page": "/pages/platform/code_sync/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/deploy",
+        "file/vfs",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "platform/credential",
+      "group": "platform",
+      "name": "credential",
+      "title": "Credential Store",
+      "category": "platform/connect",
+      "description": "The SEALED SECRET VAULT. Stores credentials/accounts (Fernet-sealed by default via a machine-derived key; seals via cap:system.secrets.dpapi when an endpoint provides it) and the shared master account. Vault-only: descriptor CRUD (list/set/delete), in_process raw-secret reads (token/master_get) and a narrow rotation write-back (put_rotated). ALL HTTP connection logic — fetch/refresh/test/status/browser-token minting + the per-product plugins — now lives in platform/auth_http; only auth_http/auth_ssh touch this vault. Secrets never persist in code, pages, logs, or responses (redacted on read); the store lives under data/, gitignored.",
+      "tags": [
+        "connection"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/credential",
+      "has_api": true,
+      "page": "/pages/platform/credential/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "platform/daemon_manager",
+      "group": "platform",
+      "name": "daemon_manager",
+      "title": "Daemon Manager",
+      "category": "platform/operations",
+      "description": "Inspect execution endpoints and manage owner-approved device enrollment, heartbeat, capabilities, capacity and redacted jobs.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/daemon_manager",
+      "has_api": true,
+      "page": "/pages/platform/daemon_manager/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "platform/deploy",
+      "group": "platform",
+      "name": "deploy",
+      "title": "Deploy",
+      "category": "platform/operations",
+      "description": "Brings pylon-server up on an endpoint. AppForge: a signed snapshot of only the aiweb foundation (main.py, pyproject.toml, framework/aiweb) is pushed to GitLab, AppForge builds and deploys it, then the framework, browser dependencies and apps are uploaded over HTTP and hot-plugged. Google VM: personal/googlevm starts the VM, the foundation is installed over SSH as a user service, then the same upload; the Linux daemon can take over as the bootstrap. Local (Windows): the daemon at login. The apps sent are the committed ones plus those the launchpad's deployment rules allow for the target.",
+      "tags": [
+        "work-admin"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/deploy",
+      "has_api": true,
+      "page": "/pages/platform/deploy/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_http",
+        "platform/auth_ssh",
+        "personal/googlevm",
+        "system/resources",
+        "file/vfs",
+        "platform/credential",
+        "platform/work_runner",
+        "platform/tool_guides"
+      ]
+    },
+    {
+      "id": "platform/downloader",
+      "group": "platform",
+      "name": "downloader",
+      "title": "Downloader",
+      "category": "platform/connect",
+      "description": "Fetch a document from an internal SOURCE (Eridoc, MediaWiki, …) by URL and return its bytes + resolved filename + metadata. Each source is a PLUGIN (framework.plugins) that claims URLs by pattern and fetches with auth borrowed app-to-app from the platform/credential app. Portable: no win32; stdlib HTTP + the credential app. New sources are drop-in plugin modules — the app and its ops never change.",
+      "tags": [
+        "connection"
+      ],
+      "workspace": {
+        "role": "fetcher"
+      },
+      "api": "/v1/apps/platform/downloader",
+      "has_api": true,
+      "page": "/pages/platform/downloader/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_ftp",
+        "platform/auth_http",
+        "platform/work_runner",
+        "system/notify",
+        "file/vfs"
+      ]
+    },
+    {
+      "id": "platform/feedback",
+      "group": "platform",
+      "name": "feedback",
+      "title": "Feedback",
+      "category": "platform/operations",
+      "description": "A standalone Feedback app that files bugs / ideas into the issue_report fleet tracker. It is the page-or-sidebar embodiment of the shared AppUIFeedback component (the same one the workspace app embeds as a tab): ONE mount() renders either as a full page OR as a sidebar panel, via AppUIPanelApp — the reusable 'page ⇄ sidebar' duality pattern. No new backend; it submits to the issue_report app.",
+      "tags": [
+        "observability"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/feedback",
+      "has_api": true,
+      "page": "/pages/platform/feedback/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/issue_report"
+      ]
+    },
+    {
+      "id": "platform/googleauth",
+      "group": "platform",
+      "name": "googleauth",
+      "title": "Google Auth",
+      "category": "platform/security",
+      "description": "Google API connection and OAuth setup; separate from Pylon owner login.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/googleauth",
+      "has_api": true,
+      "page": "/pages/platform/googleauth/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_http",
+        "platform/credential",
+        "file/gdrive",
+        "file/drive_manager"
+      ]
+    },
+    {
+      "id": "platform/home",
+      "group": "platform",
+      "name": "home",
+      "title": "Home",
+      "category": "platform/shell",
+      "description": "The pylon-server launchpad served at /: a live, VIS-driven home that browses every app and LLM tool (vis://tool_catalog groups → apps → tools, plus any other VIS provider such as the Ericsson MOM), with search, a command palette, pinned/recent apps, a fleet pulse, endpoint status, a right-click app tree, and a Try-it runner for read-only tools. Also the pylon-server project registry and handoff (projects page: TODO, services, checkpoints, resume briefs, the operations view and VM-only private-GitHub sync), merged from ProjectHub.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/home",
+      "has_api": true,
+      "page": "/pages/platform/home/",
+      "has_page": true,
+      "needs_apps": [
+        "knowledge/vis",
+        "platform/appui_guide",
+        "platform/tool_catalog",
+        "platform/tool_guides",
+        "platform/tool_todo"
+      ]
+    },
+    {
+      "id": "platform/issue_report",
+      "group": "platform",
+      "name": "issue_report",
+      "title": "Issue Report",
+      "category": "platform/operations",
+      "description": "Issue / defect tracker: user feedback and converter rendering gaps (the 'submit' backend platform/feedback depends on) AND recurring ERRORS FROM THE LOG - one issue per log fingerprint with an ISS-n number, occurrences, first/last seen, an automatic triage class + reason, a comment thread, and the number written back onto the log entries as a comment. A resolved issue whose error keeps happening is re-opened as a regression. Store: data/apps/platform/issue_report/. Read ops are read_only; writes are confirm (delete and the bulk track_log self-gate on confirm=true).",
+      "tags": [
+        "observability",
+        "tracker"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/issue_report",
+      "has_api": true,
+      "page": "/pages/platform/issue_report/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/log",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "platform/log",
+      "group": "platform",
+      "name": "log",
+      "title": "Logs",
+      "category": "platform/operations",
+      "description": "Unified structured application, framework, browser and endpoint logs.",
+      "tags": [
+        "observability"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/log",
+      "has_api": true,
+      "page": "/pages/platform/log/",
+      "has_page": true,
+      "needs_apps": [
+        "system/notify"
+      ]
+    },
+    {
+      "id": "platform/mcp_server",
+      "group": "platform",
+      "name": "mcp_server",
+      "title": "MCP Bridge",
+      "category": "platform/tools",
+      "description": "Model Context Protocol server — the OUTWARD bridge that exposes every platform tool to EXTERNAL MCP clients (Claude Desktop, other agents) over standards-compliant JSON-RPC (initialize/tools/list/tools/call/ping). Unlike platform/tool_catalog (the internal anti-MCP browse surface), this speaks real MCP. tools/list is enumerated LIVE from platform/tool_catalog so a new app's tools appear automatically; tools/call routes to apphost.invoke(require_facet='tool'). Served as an op (rpc) AND as a Streamable-HTTP mount at /apps/platform/mcp_server/mcp. WRITE (safety=confirm) tools require confirm=true in the call arguments unless MCP_ALLOW_WRITES=1.",
+      "tags": [
+        "tools"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/mcp_server",
+      "has_api": true,
+      "page": "/pages/platform/mcp_server/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/tool_catalog",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "platform/ops",
+      "group": "platform",
+      "name": "ops",
+      "title": "Operations",
+      "category": "platform/operations",
+      "description": "Operations for this pylon-server host: a dependency-ordered task executor (install, services, health, regression tests, monitor, backup/restore, deploy prerequisites, scaffold, security audit, and acceptance gates that need recorded end-to-end evidence), host metrics, verified backups of the runtime databases and a secret-file audit. VM-only checks (systemd, deploy) report 'skipped' elsewhere. Moved from the pylon-server Todo project.",
+      "tags": [
+        "observability",
+        "work-admin"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/ops",
+      "has_api": true,
+      "page": "/pages/platform/ops/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/tool_todo",
+        "platform/work_runner"
+      ]
+    },
+    {
+      "id": "platform/os_page_input",
+      "group": "platform",
+      "name": "os_page_input",
+      "title": "OS Page Input",
+      "category": "system/automation",
+      "description": "Drive a TOP-FRAME web page with real OS-level input — a genuine OS mouse-click to focus an element, then genuine OS keystrokes — the way a human types, so a page cannot distinguish it from a user. Complements platform/page_automation (which drives the managed browser via CDP) for fields/frameworks that ignore synthetic DOM/CDP input. The FIRST consumer of framework.os_automation: it reads the target element's rect + window dims over CDP (the browser must already expose a debug port), computes the absolute screen click point with the verified viewport-to-screen math, then OS-clicks + OS-types via cap:desktop.input and reads the value back to confirm it landed. Environment-agnostic: all OS side effects live in cap:desktop.input on the endpoint. Constraints: top-frame elements only (cannot reach a cross-origin OOPIF), and needs an interactive desktop session. type_into is confirm-gated (a real OS side effect) and self-gates on confirm=true with a dry-run plan preview.",
+      "tags": [
+        "browser-automation"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/os_page_input",
+      "has_api": true,
+      "page": null,
+      "has_page": false,
+      "needs_apps": []
+    },
+    {
+      "id": "platform/page_automation",
+      "group": "platform",
+      "name": "page_automation",
+      "title": "Page Automation (login cases)",
+      "category": "system/automation",
+      "description": "The single source of truth for BROWSER page-automation CASES — named recipes (match + screen classification rules + selectors + actions) that drive a login/consent flow in the managed Edge via cap:system.cdp. Replaces the hardcoded screen state machines that lived inline in the daemon device_login and in workspace/cdp_session. Cases are editable DATA under data/apps/platform/page_automation/cases/ (hot-add a flow with no code change). This app is environment-agnostic: it stores/serves/matches cases and resolves a case BUNDLE for the daemon interpreter; the daemon device_login cap consumes the bundle and does the actual CDP driving. Secrets are never stored or echoed here — a case references a secret by ref (e.g. 'master'); the orchestrator (auth_http) resolves it from platform/credential in-process.",
+      "tags": [
+        "browser-automation"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/page_automation",
+      "has_api": true,
+      "page": "/pages/platform/page_automation/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "platform/remote_runner",
+      "group": "platform",
+      "name": "remote_runner",
+      "title": "Remote Runner",
+      "category": "platform/connect",
+      "description": "Remote command / file-copy / OS-tag detection + DETACHED durable jobs on configured hosts, layered on platform/auth_ssh (one SSH stack, one credential path, one host-alias registry — no parallel ssh). run adds the SELI 'module add' prelude + a done/connect phase; os_tag maps uname→RHEL8-x86_64 for per-OS build trees; copy uploads/downloads a file over SFTP. Detached jobs (job_launch/status/log/cancel/list) run a setsid process that SURVIVES the ssh channel, recording pid/log/rc/status under a per-user job root — the durable-job fabric seqdiag_harvester / cask_manager need. Ported from ai-pylon v1 remote_runner, step 1 of 2 (step 2 adds the port-forwarding fabric: tcp_pipe / run_pushing / persistent -L tunnel).",
+      "tags": [
+        "connection",
+        "remote-exec"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/remote_runner",
+      "has_api": true,
+      "page": "/pages/platform/remote_runner/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_ssh"
+      ]
+    },
+    {
+      "id": "platform/router",
+      "group": "platform",
+      "name": "router",
+      "title": "Router",
+      "category": "platform/operations",
+      "description": "The public hostnames of this host: the Caddy routes it owns (the VM's DriveManager, DriveShare, pylon-server and pylon-server hosts, the ProjectHub path and the hub redirect), reconciled through Caddy's localhost admin API with every other route preserved, plus read-only diagnostics and the versioned root Caddyfile. Hosts without Caddy (Windows, AppForge) report that routing is done elsewhere. Moved from the pylon-server Router project.",
+      "tags": [
+        "observability"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/router",
+      "has_api": true,
+      "page": "/pages/platform/router/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "platform/settings",
+      "group": "platform",
+      "name": "settings",
+      "title": "Settings & Home",
+      "category": "platform/shell",
+      "description": "Instance HOME + global settings. Shows a launcher of every loaded app (page link + example prompts, built live from the app registry) and lets you view/edit the global workspace root + default workspace (framework.settings, stored under ~/pylon-server/) plus see the legacy-config migration. The workspace app is the center of pylon-server; this is the front door + the one place the shared workspace_root is configured.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/settings",
+      "has_api": true,
+      "page": "/pages/platform/settings/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/work_runner",
+        "platform/credential",
+        "platform/deploy",
+        "platform/ops",
+        "platform/tool_todo"
+      ]
+    },
+    {
+      "id": "platform/tool_cask",
+      "group": "platform",
+      "name": "tool_cask",
+      "title": "Tool Cask",
+      "category": "platform/tools",
+      "description": "The CASK marketplace (skills + agents) as a platform tool source: search, install into a host's .kiro, uninstall, submit/publish a skill folder, download + browse artifacts, and a VIS tree (vis://cask). Every cask command runs with the cask CLI ON the SSH host (platform/auth_ssh) where the Cloudflare Access session lives. Also: login (one-click, or fully automatic via the managed Edge), an unattended CASK_API_KEY, publish of the sysdoc-converter bundle, and sync. Formerly ericsson/cask_manager; absorbed the Workspace's mcp_cask.",
+      "tags": [
+        "tools",
+        "kiro"
+      ],
+      "workspace": {
+        "role": "provider"
+      },
+      "api": "/v1/apps/platform/tool_cask",
+      "has_api": true,
+      "page": "/pages/platform/tool_cask/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_ssh",
+        "platform/work_runner",
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "platform/tool_catalog",
+      "group": "platform",
+      "name": "tool_catalog",
+      "title": "Tool Catalog",
+      "category": "platform/tools",
+      "description": "A HIERARCHICAL, browsable catalog of every tool the platform exposes — built from the apps' declared `tool` facets (manifest), grouped by their app-group path (system/, office/outlook/, …). This is the deliberate alternative to a flat MCP tool dump: an AI chat (or a human) BROWSES into the catalog (group → tools → detail) and pulls only the few schemas it needs, so tool discovery stays context-cheap at any scale. Its ops are pure discovery and never execute a tool; its PAGE (Tools / Chain builder / Dependency graph / API reference) calls tools through the normal op edge - Try-It and the chain builder, whose steps route earlier outputs into later inputs. Keyword recommend + capability-gap capture today; an LLM-ranked recommend is wired once the llm app exists.",
+      "tags": [
+        "tools",
+        "assistant"
+      ],
+      "workspace": {
+        "role": "provider",
+        "comment": "VIS #41: the tool catalog is the reference VIS provider 'tool_catalog' (groups -> apps -> tools via vis_children/vis_node/vis_search)."
+      },
+      "api": "/v1/apps/platform/tool_catalog",
+      "has_api": true,
+      "page": "/pages/platform/tool_catalog/",
+      "has_page": true,
+      "needs_apps": [
+        "ai/llm_server"
+      ]
+    },
+    {
+      "id": "platform/tool_guides",
+      "group": "platform",
+      "name": "tool_guides",
+      "title": "Tool Guides",
+      "category": "platform/tools",
+      "description": "Hierarchical guides for using apps and tools correctly (root > group > app > tool, + cross-app recipes): each guide says when to use it, lists its tools, worked scenarios and notes. Also learns each assistant's favourite tools from its successful use and a tool relationship map; ai/llm_server puts the guide index + favourites into every assistant's prompt.",
+      "tags": [
+        "tools",
+        "assistant"
+      ],
+      "workspace": {
+        "role": "infra",
+        "comment": "platform plumbing for the AI assistants; its guide tree is also the VIS provider 'tool_guides'."
+      },
+      "api": "/v1/apps/platform/tool_guides",
+      "has_api": true,
+      "page": "/pages/platform/tool_guides/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/credential",
+        "file/vfs",
+        "platform/work_runner",
+        "platform/deploy"
+      ]
+    },
+    {
+      "id": "platform/tool_kiro",
+      "group": "platform",
+      "name": "tool_kiro",
+      "title": "Tool Kiro",
+      "category": "platform/tools",
+      "description": "Recognises the .kiro folders - home (~/.kiro), this repo, the active workspace folder and any extra or remote root (file/vfs) - and puts what they declare to work across the platform: MCP servers (settings/mcp.json, agents' mcpServers) become catalog tools mcp/<server>.<tool> once enabled, usable by assistants, the chain builder, Try-It and workflows; skills (skills/*/SKILL.md) become guides in platform/tool_guides; agents (agents/*.json) become chat personas (prompt + resources + tool scope); steering is listed. Browsable as vis://kiro. Nothing is contacted until a server is enabled. Also the platform's MCP registries (the Ericsson bnew allowlist): its servers are enabled the same way (stdio ones run on the configured SSH host), with per-server env values.",
+      "tags": [
+        "tools",
+        "kiro"
+      ],
+      "workspace": {
+        "role": "provider",
+        "comment": "exposes the user's .kiro (MCP/skills/agents/steering) to the workspace, its chat and every assistant"
+      },
+      "api": "/v1/apps/platform/tool_kiro",
+      "has_api": true,
+      "page": "/pages/platform/tool_kiro/",
+      "has_page": true,
+      "needs_apps": [
+        "file/vfs"
+      ]
+    },
+    {
+      "id": "platform/tool_profiler",
+      "group": "platform",
+      "name": "tool_profiler",
+      "title": "Tool Profiler",
+      "category": "platform/tools",
+      "description": "Per-tool call metrics (calls, errors, avg/p50/p95/max latency), recent traces, slow calls and usage analytics for EVERY tool call on the host - recorded by the framework itself (framework.op_metrics, fed by apphost.invoke), so HTTP, in-process, LLM tool calls and workflow steps are all counted. In memory since the host started; parameter values are never recorded. The v2 port of v1 tools_profiler + Tool Analytics.",
+      "tags": [
+        "tools",
+        "observability"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/tool_profiler",
+      "has_api": true,
+      "page": "/pages/platform/tool_profiler/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "platform/tool_runner",
+      "group": "platform",
+      "name": "tool_runner",
+      "title": "Tool Runner",
+      "category": "platform/tools",
+      "description": "Workflows over app tools - the v2 port of v1 tools_runner: a flow engine (tool / condition / switch / loop / parallel / transform / sub-workflow / map-reduce / approval / agent / llm / http steps), the visual workflow editor, cron + event + file-watch + webhook triggers, run history with replay, step replay and retry-from-step, agents and pipelines, the offline queue, a planner and Power Automate import. Tool metrics live in platform/tool_profiler; Try-It and the API reference in platform/tool_catalog.",
+      "tags": [
+        "tools",
+        "workflow"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/tool_runner",
+      "has_api": true,
+      "page": "/pages/platform/tool_runner/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/tool_catalog",
+        "system/notify",
+        "ai/llm_server"
+      ]
+    },
+    {
+      "id": "platform/tool_todo",
+      "group": "platform",
+      "name": "tool_todo",
+      "title": "TODO",
+      "category": "platform/tools",
+      "description": "The TODO list of every app (framework apps, pylon-server projects and the bootstrap): one TODO.md per app folder in the pylon-server todo format (persistent #N ids, sections, notes, dated done trail). List one app or the counts of all; add, complete, annotate and set the state of items.",
+      "tags": [
+        "tools"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/tool_todo",
+      "has_api": true,
+      "page": "/pages/platform/tool_todo/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "platform/work_runner",
+      "group": "platform",
+      "name": "work_runner",
+      "title": "Work Runner",
+      "category": "platform/operations",
+      "description": "General background job queue: submit-and-poll long-running work instead of blocking a request. A bounded drain loop (max 2 concurrent) runs each job to a terminal state and persists queue + history under data/apps/platform/work_runner/. Jobs target local (subprocess) or remote (via platform/remote_runner), kind run|copy, with optional inline-script / VFS env-file staging (file/vfs). Progress/terminal state is posted to system/notify. Ported from ai-pylon v1 (SELI/cask composite job kinds deferred). Read ops are read_only; submit/cancel are safety=confirm.",
+      "tags": [
+        "workflow"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/work_runner",
+      "has_api": true,
+      "page": "/pages/platform/work_runner/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/remote_runner",
+        "file/vfs",
+        "system/notify",
+        "platform/credential"
+      ]
+    },
+    {
+      "id": "system/cdp",
+      "group": "system",
+      "name": "cdp",
+      "title": "CDP Inspector",
+      "category": "system/automation",
+      "description": "Inspect and drive the endpoint's signed-in browser via the CDP capability: list tabs, navigate, and evaluate JavaScript. Environment-agnostic — calls cap('cap:system.cdp'); the actual Edge/DevTools lives in the endpoint daemon.",
+      "tags": [
+        "browser-automation"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/cdp",
+      "has_api": true,
+      "page": "/pages/system/cdp/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "system/clipboard",
+      "group": "system",
+      "name": "clipboard",
+      "title": "Clipboard",
+      "category": "system",
+      "description": "Read the system clipboard (text / files / HTML / image) and the source app, with a local bounded HISTORY (capture/history/search/pin). Environment-agnostic app fronting cap:desktop.clipboard (the pure-ctypes capture core lives in the Windows endpoint daemon). A scheduler polls `sequence` and calls `capture` to build history; pattern triggers + a clipboard.copied event are the remaining daemon-side follow-up.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/clipboard",
+      "has_api": true,
+      "page": "/pages/system/clipboard/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "system/node_sync",
+      "group": "system",
+      "name": "node_sync",
+      "title": "Node Sync (HTTP)",
+      "category": "system",
+      "description": "HTTP-based peer-to-peer code and data synchronization between Pylon nodes (local <-> VM) with SHA-256 diff, selective push/pull, secret exclusion, and automatic pre-overwrite backups. Requires no SSH client.",
+      "tags": [
+        "sync",
+        "http",
+        "code",
+        "data",
+        "peer"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/node_sync",
+      "has_api": true,
+      "page": "/pages/system/node_sync/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_http"
+      ]
+    },
+    {
+      "id": "system/notify",
+      "group": "system",
+      "name": "notify",
+      "title": "Notification Hub",
+      "category": "system",
+      "description": "Persistent notification center and delivery hub. Desktop tray status, lifecycle and menus are owned by system/tray; legacy tray_* operations delegate there.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/notify",
+      "has_api": true,
+      "page": "/pages/system/notify/",
+      "has_page": true,
+      "needs_apps": [
+        "system/tray"
+      ]
+    },
+    {
+      "id": "system/remote_browser",
+      "group": "system",
+      "name": "remote_browser",
+      "title": "Remote Browser",
+      "category": "system/automation",
+      "description": "Human-operated remote Chromium workspace with an endpoint selector, isolated profiles and an embedded browser viewer.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/remote_browser",
+      "has_api": true,
+      "page": "/pages/system/remote_browser/",
+      "has_page": true,
+      "needs_apps": [
+        "system/cdp"
+      ]
+    },
+    {
+      "id": "system/resources",
+      "group": "system",
+      "name": "resources",
+      "title": "Resources",
+      "category": "system/inspect",
+      "description": "Report + free the real idle resource consumers of the platform. v2 apps are in-process (free at idle), so the things that actually spin RAM/CPU when idle live in the endpoint daemon: the managed Edge browser, the kiro ACP warm pool, and keep-awake. This app reports them and releases them on demand (the v2 answer to v1's 'stop idle apps'). Environment-agnostic â€” drives cap:system.cdp / cap:system.acp / cap:desktop.wakeup.",
+      "tags": [
+        "inspect"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/resources",
+      "has_api": true,
+      "page": null,
+      "has_page": false,
+      "needs_apps": [
+        null,
+        "system/tray"
+      ]
+    },
+    {
+      "id": "system/server_conn",
+      "group": "system",
+      "name": "server_conn",
+      "title": "Server Connectivity",
+      "category": "system",
+      "description": "Inspect accessible IPs and URLs for the current Pylon HTTP server, and configure server binding, DuckDNS dynamic DNS, and daemon-managed ngrok tunnels.",
+      "tags": [
+        "network",
+        "ip",
+        "duckdns",
+        "ngrok",
+        "daemon"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/server_conn",
+      "has_api": true,
+      "page": "/pages/system/server_conn/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "system/ssh_client",
+      "group": "system",
+      "name": "ssh_client",
+      "title": "SSH Client",
+      "category": "system",
+      "description": "Manage SSH keys, ~/.ssh/config host entries, GCE instance SSH key provisioning, connection checks, and remote command execution for standard SSH clients.",
+      "tags": [
+        "ssh",
+        "gce",
+        "keys",
+        "remote"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/ssh_client",
+      "has_api": true,
+      "page": "/pages/system/ssh_client/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "system/task_analyzer",
+      "group": "system",
+      "name": "task_analyzer",
+      "title": "Task Analyzer",
+      "category": "system/inspect",
+      "description": "Task manager / analyzer: live process table, top CPU/memory consumers, per-process detail, the process parent->child tree, a one-shot 'what's using the machine right now' analysis (summary + top consumers + per-program rollup + verdict), and a guarded process kill. Core is a pure psutil wrapper with a fast Windows PDH backend (per-process CPU+memory in one query, ~15x faster) that falls back to psutil automatically. Read ops are read_only; kill is safety=confirm and refuses critical OS/session processes unless force_protected=true. Ported from ai-pylon v1.",
+      "tags": [
+        "inspect"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/task_analyzer",
+      "has_api": true,
+      "page": "/pages/system/task_analyzer/",
+      "has_page": true,
+      "needs_apps": []
+    },
+    {
+      "id": "system/terminal",
+      "group": "system",
+      "name": "terminal",
+      "title": "Terminal",
+      "category": "system",
+      "description": "Run commands on the endpoint machine OR on a remote host over SSH. LOCAL shells broker cap:system.terminal (real ConPTY on the Windows daemon). REMOTE shells (host set) route through platform/auth_ssh (portable paramiko SSH) with credentials from platform/credential — no daemon needed. `run` is the clean one-shot path with a REAL exit code and split stdout/stderr, local or remote. Local also offers persistent interactive PTY sessions (create/write/read/exec/resize/kill). The xterm page (xterm.htm, mounted API /apps/system/terminal/xterm/) is a real terminal emulator: SSH to any host with host-key confirmation (passwords used once, never stored), or a local shell (PTY on Linux, the daemon's ConPTY on Windows; off on ai-web pods).",
+      "tags": [
+        "remote-exec"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/terminal",
+      "has_api": true,
+      "page": "/pages/system/terminal/",
+      "has_page": true,
+      "needs_apps": [
+        "platform/auth_ssh"
+      ]
+    },
+    {
+      "id": "system/tray",
+      "group": "system",
+      "name": "tray",
+      "title": "System Tray",
+      "category": "system",
+      "description": "Manage desktop tray status, lifecycle, and application menus.",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/tray",
+      "has_api": true,
+      "page": "/pages/system/tray/",
+      "has_page": true,
+      "needs_apps": [
+        "system/resources"
+      ]
+    },
+    {
+      "id": "system/ui_input",
+      "group": "system",
+      "name": "ui_input",
+      "title": "Input Simulation",
+      "category": "system/automation",
+      "description": "OS-level keyboard/mouse input simulation — injects genuine physical input events (so a browser/app receives real OS input). Environment-agnostic front for cap:desktop.input; the pynput core lives in the Windows endpoint daemon. Write ops (type/key/mouse) are confirm-gated (real OS side effect).",
+      "tags": [
+        "browser-automation"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/ui_input",
+      "has_api": true,
+      "page": null,
+      "has_page": false,
+      "needs_apps": []
+    },
+    {
+      "id": "system/wakeup",
+      "group": "system",
+      "name": "wakeup",
+      "title": "Keep Awake",
+      "category": "system",
+      "description": "Prevent the machine (and display) from sleeping, with physical-idle backoff. Environment-agnostic app fronting cap:desktop.wakeup (the ctypes keep-awake core lives in the Windows endpoint daemon).",
+      "tags": [],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/system/wakeup",
+      "has_api": true,
+      "page": "/pages/system/wakeup/",
+      "has_page": true,
+      "needs_apps": []
+    }
+  ]
+}

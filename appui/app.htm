@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>AppUI</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <!-- PAGE: css -->
+</head>
+<body data-auto-init="true" data-page-id="new_app" data-page-title="New App" data-statusbar="true" data-ai-tools="">
+  <!--
+    AppUI Layout Template
+    =====================
+    Copy this file as your page's index.html. AppUI mounts into these regions;
+    keep every app-* region and the app-template version metadata intact.
+    Configure regions through AppUI; do not remove the placeholder tags.
+    Each region is identified by its tag comment and class/id.
+
+    Regions:
+      #app-menubar        — top menu bar
+      #app-left           — left sidebar (file explorer, navigation)
+      #app-content-top    — fixed toolbar/header above content
+      #app-content-body   — main scrollable content area
+      #app-content-bottom — fixed footer below content
+      #app-right          — right sidebar (AI chat)
+      #app-statusbar      — bottom status bar
+  -->
+
+  <!-- REGION: menubar -->
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+
+  <!-- REGION: main (left + content + right) -->
+  <div id="app-main" class="ai-app-main">
+
+    <!-- REGION: left sidebar -->
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+
+    <!-- REGION: content -->
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <!-- REGION: content-top (toolbar/header — remove if not needed) -->
+      <div id="app-content-top" class="content-top"></div>
+
+      <!-- REGION: content-body (main area — always present) -->
+      <div id="app-content-body" class="content-body"></div>
+
+      <!-- REGION: content-bottom (footer — remove if not needed) -->
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+
+    <!-- REGION: right sidebar -->
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+
+  </div>
+
+  <!-- REGION: statusbar -->
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+
+  <!-- Generated core bundle. Optional features use AppUI.load(name). -->
+  <script>window.AppUIReady = AppUIAssets.load('foundation', 'shell', 'aiSidebar', 'templateBootstrap');</script>
+
+  <!-- PAGE: scripts (use your own app.js instead of template bootstrap for custom configuration) -->
+</body>
+</html>

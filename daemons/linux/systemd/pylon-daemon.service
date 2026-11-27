@@ -1,0 +1,23 @@
+[Unit]
+Description=pylon-server Linux daemon in server mode (bootstrap of uvicorn main:app, attach mode; public via pylon.<host> Caddy route)
+After=drivemanager.service driveshare.service project-hub.service webssh.service
+
+[Service]
+WorkingDirectory=%h
+# Server mode: this daemon starts and supervises the bootstrap, then registers
+# the VM's Linux capabilities with it over /agent.
+Environment=PYLON2_DAEMON_MODE=server
+Environment=PYLON2_SERVER_PORT=8771
+Environment=PYLON2_ENDPOINT_ID=linux-pylon-vm
+# Passed on to the server: attach to the systemd-run projects.
+Environment=PYLON_UPSTREAMS=drivemanager=http://127.0.0.1:8767,driveshare=http://127.0.0.1:8768,project-hub=http://127.0.0.1:8769,webssh=http://127.0.0.1:8770
+Environment=PYLON_UPSTREAM_ORIGIN=https://manager.104-154-100-135.sslip.io
+ExecStart=%h/.venvs/aiweb/bin/python %h/daemons/linux/agent.py
+# Caddy reloads drop API-added routes; re-assert ours (never fails the unit).
+ExecStartPost=-/usr/bin/python3 %h/apps/platform/router/impl/router_gateway.py apply
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

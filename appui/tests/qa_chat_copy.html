@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>appui chat copy QA</title></head>
+<body>
+<!-- Hermetic BROWSER QA for the chat Copy buttons (llm_server TODO idea:
+     per-message copy + per-code-block copy). Loads the REAL runtime/core.js
+     (AppUICore.copyText) + content/chat-ui.js with a tiny AppUILifecycle stub,
+     stubs navigator.clipboard.writeText to capture copied text, and drives
+     AppUIChatUI.attachCopyButtons + attachMessageControls against mock DOM. No
+     backend, no bundle, no transport. -->
+<div id="host"></div>
+<script>
+// capture clipboard writes
+window.__copied = [];
+try {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: function (t) { window.__copied.push(String(t)); return Promise.resolve(); } }
+  });
+} catch (e) {}
+// minimal AppUILifecycle used by chat-ui.js attachMessageControls
+window.AppUILifecycle = { createScope: function () {
+  var fns = [];
+  return { listen: function (el, ev, fn) { el.addEventListener(ev, fn); },
+           add: function (fn) { fns.push(fn); },
+           destroy: function () { fns.forEach(function (f) { try { f(); } catch (e) {} }); },
+           destroyed: false };
+} };
+// chat-ui.js destructures these at load — stub them so the IIFE initializes.
+window._AppUIChatMemory = {
+  getMemories: function () { return []; }, addMemory: function () {},
+  deleteMemory: function () {}, buildMemoryContext: function () { return ''; },
+  detectRememberCommand: function () { return null; }, detectAIRememberResponse: function () { return null; }
+};
+window.AppUITextUtils = window.AppUITextUtils || { esc: function (s) { return s == null ? '' : String(s); } };
+// core.js also destructures these runtime siblings at load — stub them.
+window._AppUICoreStream = { parseSSE: function () {}, streamChat: function () {} };
+window._AppUICoreSteering = { queue: function () {}, interrupt: function () {} };
+// core.js calls AppUICore.initTheme() → AppUITheme.restore() at load; stub it.
+window.AppUITheme = { toggle: function () {}, set: function () {}, restore: function () {} };
+</script>
+<script src="../src/runtime/markdown.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script src="../src/runtime/core.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script src="../src/content/chat-ui.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script>
+(function () {
+  function ready() {
+    return !!(window.AppUIChatUI && typeof AppUIChatUI.attachCopyButtons === 'function'
+      && typeof AppUIChatUI.attachMessageControls === 'function'
+      && window.AppUICore && typeof AppUICore.copyText === 'function');
+  }
+  window.__qa = {
+    ready: ready,
+    appLoadErr: function () { return !!window.__APP_LOAD_ERR; },
+
+    // --- per-code-block copy ---
+    // build a message with a rendered <pre><code> and attach copy buttons
+    makeCodeMsg: function () {
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); msg.className = 'ai-chat-prose';
+      var pre = document.createElement('pre'); var code = document.createElement('code');
+      code.textContent = "print('hello')\nx = 42";
+      pre.appendChild(code); msg.appendChild(pre); host.appendChild(msg);
+      AppUIChatUI.attachCopyButtons(msg);
+      return msg;
+    },
+    codeCopyBtnCount: function () { return this.makeCodeMsg().querySelectorAll('.ai-chat-copy-code').length; },
+    // idempotent: attaching twice does not duplicate
+    codeCopyIdempotent: function () {
+      var msg = this.makeCodeMsg();
+      AppUIChatUI.attachCopyButtons(msg);
+      return msg.querySelectorAll('.ai-chat-copy-code').length;
+    },
+    clickCodeCopy: function () {
+      window.__copied = [];
+      var msg = this.makeCodeMsg();
+      msg.querySelector('.ai-chat-copy-code').click();
+      return window.__copied.length === 1 ? window.__copied[0] : null;
+    },
+
+    // --- per-message copy (in the controls row) ---
+    clickMsgCopy: function () {
+      window.__copied = [];
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); msg.textContent = 'rendered text';
+      host.appendChild(msg);
+      AppUIChatUI.attachMessageControls(msg, 'assistant', { content: 'ORIGINAL message content' }, null, null);
+      // find the Copy button by its label
+      var btns = msg.querySelectorAll('button'); var copyBtn = null;
+      btns.forEach(function (b) { if (b.textContent === 'Copy') copyBtn = b; });
+      if (!copyBtn) return null;
+      copyBtn.click();
+      return window.__copied.length === 1 ? window.__copied[0] : null;
+    },
+
+    // --- regenerate control (per-message) ---
+    // assistant message WITH an onRegenerate handler gets a ↻ Regenerate button
+    // whose click fires the handler; a user message never gets one.
+    regenOnAssistant: function () {
+      window.__regen = 0;
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); host.appendChild(msg);
+      AppUIChatUI.attachMessageControls(msg, 'assistant', { content: 'a' }, null, function(){}, function(){ window.__regen++; });
+      var found = null;
+      msg.querySelectorAll('button').forEach(function (b) { if (/Regenerate/.test(b.textContent)) found = b; });
+      if (!found) return 'no-button';
+      found.click();
+      return window.__regen === 1 ? 'fired' : 'no-fire';
+    },
+    regenNotOnUser: function () {
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); host.appendChild(msg);
+      // a user message passes null onRegenerate (the history view only wires it
+      // for the last assistant); assert no Regenerate button appears.
+      AppUIChatUI.attachMessageControls(msg, 'user', { content: 'q' }, function(){}, function(){}, null);
+      var has = false;
+      msg.querySelectorAll('button').forEach(function (b) { if (/Regenerate/.test(b.textContent)) has = true; });
+      return has ? 'has-button' : 'none';
+    },
+
+    // --- continue a stopped turn ---
+    // a STOPPED assistant message (stopped:true) with onContinue gets a Continue
+    // button that fires; a NON-stopped assistant message does not.
+    continueOnStopped: function () {
+      window.__cont = 0;
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); host.appendChild(msg);
+      AppUIChatUI.attachMessageControls(msg, 'assistant', { content: 'partial', stopped: true },
+        null, function(){}, null, null, function(){ window.__cont++; });
+      var btn = null;
+      msg.querySelectorAll('button').forEach(function (b) { if (/Continue/.test(b.textContent)) btn = b; });
+      if (!btn) return 'no-button';
+      btn.click();
+      return window.__cont === 1 ? 'fired' : 'no-fire';
+    },
+    continueNotOnComplete: function () {
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); host.appendChild(msg);
+      // a COMPLETED assistant message (no stopped flag) must NOT show Continue.
+      AppUIChatUI.attachMessageControls(msg, 'assistant', { content: 'done' },
+        null, function(){}, null, null, function(){});
+      var has = false;
+      msg.querySelectorAll('button').forEach(function (b) { if (/Continue/.test(b.textContent)) has = true; });
+      return has ? 'has-button' : 'none';
+    },
+
+    // --- edit & resend (user message) ---
+    // user message WITH onEdit gets an Edit button → opens a textarea + Save;
+    // editing + Save fires onEdit(newText) with the edited text.
+    editResendFlow: function () {
+      window.__edited = null;
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); msg.textContent = 'original q'; host.appendChild(msg);
+      AppUIChatUI.attachMessageControls(msg, 'user', { content: 'original q' },
+        function(){}, function(){}, null, function(t){ window.__edited = t; });
+      var editBtn = null;
+      msg.querySelectorAll('button').forEach(function (b) { if (b.textContent === 'Edit') editBtn = b; });
+      if (!editBtn) return 'no-edit-button';
+      editBtn.click();
+      var ta = msg.querySelector('.ai-chat-edit-box textarea');
+      if (!ta) return 'no-textarea';
+      if (ta.value !== 'original q') return 'bad-seed:' + ta.value;
+      ta.value = 'EDITED question';
+      var saveBtn = null;
+      msg.querySelectorAll('.ai-chat-edit-box button').forEach(function (b) { if (/Save/.test(b.textContent)) saveBtn = b; });
+      if (!saveBtn) return 'no-save';
+      saveBtn.click();
+      // box should be removed + onEdit fired with edited text
+      if (msg.querySelector('.ai-chat-edit-box')) return 'box-not-closed';
+      return window.__edited;
+    },
+    editCancelKeepsOriginal: function () {
+      window.__edited = null;
+      var host = document.getElementById('host'); host.innerHTML = '';
+      var msg = document.createElement('div'); msg.textContent = 'keep me'; host.appendChild(msg);
+      AppUIChatUI.attachMessageControls(msg, 'user', { content: 'keep me' },
+        function(){}, function(){}, null, function(t){ window.__edited = t; });
+      var editBtn = null;
+      msg.querySelectorAll('button').forEach(function (b) { if (b.textContent === 'Edit') editBtn = b; });
+      editBtn.click();
+      var ta = msg.querySelector('.ai-chat-edit-box textarea'); ta.value = 'changed but cancelled';
+      var cancelBtn = null;
+      msg.querySelectorAll('.ai-chat-edit-box button').forEach(function (b) { if (b.textContent === 'Cancel') cancelBtn = b; });
+      cancelBtn.click();
+      return (msg.querySelector('.ai-chat-edit-box') ? 'box-open' : 'closed') + ':' + (window.__edited === null ? 'no-fire' : 'fired');
+    }
+  };
+})();
+</script>
+</body>
+</html>

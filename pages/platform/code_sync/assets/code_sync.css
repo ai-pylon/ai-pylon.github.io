@@ -1,0 +1,78 @@
+.cs-wrap{max-width:1120px;margin:0 auto;padding:24px;display:grid;gap:16px;color:inherit}
+.cs-wrap h1,.cs-wrap h2,.cs-wrap p{margin:0}.cs-wrap h2{font-size:1.1rem}
+.cs-wrap header,.cs-card{display:grid;gap:12px}.cs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.cs-card{border:1px solid var(--border,#8885);border-radius:10px;padding:16px;min-width:0}
+.cs-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.cs-actions button{font:inherit;cursor:pointer;padding:7px 12px;border-radius:6px}
+.cs-wrap a{overflow-wrap:anywhere}.cs-summary{white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.cs-table{overflow:auto;max-height:420px}.cs-table table{width:100%;border-collapse:collapse;font-size:.9rem}
+.cs-table td,.cs-table th{text-align:left;padding:8px;border-bottom:1px solid var(--border,#8885);vertical-align:top}
+.cs-table td:first-child{min-width:140px}.cs-table td:last-child{overflow-wrap:anywhere}
+.cs-wrap [role=status]{padding:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:500px){.cs-wrap{padding:12px}.cs-grid{grid-template-columns:1fr}}
+
+.cs-diff{white-space:pre-wrap;overflow:auto;max-height:380px;overflow-wrap:anywhere;border:1px solid var(--border,#8885);padding:10px}.cs-file{font:inherit;white-space:normal;text-align:left;overflow-wrap:anywhere;background:none;border:none;text-decoration:underline;cursor:pointer;color:inherit}.cs-wrap input:not([type=checkbox]){padding:8px;max-width:100%;font:inherit}.cs-table td:first-child:has(input){min-width:32px;width:32px}
+
+.cs-operation-status:empty{display:none}.cs-operation-status{font-size:.9rem;line-height:1.45;overflow-wrap:anywhere;border-inline-start:3px solid var(--border,#8888);padding:8px 10px!important}.cs-operation-status[data-kind=error]{border-inline-start-color:#d97706;font-weight:600}.cs-operation-status[data-kind=success]{border-inline-start-color:#16a34a}.cs-actions button:disabled{opacity:.55;cursor:wait}
+
+/* Source explorer: compact folders, semantic change colors, local diff pane. */
+.cs-wrap{max-width:1500px}
+.cs-review-layout{display:grid;grid-template-columns:minmax(290px,1fr) minmax(0,1.25fr);gap:14px;align-items:start;min-width:0}
+.cs-review-list,.cs-tree-panel{min-width:0;display:grid;gap:8px}
+.cs-review-group{border:1px solid var(--border,#8885);border-radius:8px;min-width:0;padding:8px}
+.cs-review-group>summary{cursor:pointer;font-weight:650;padding:5px 2px}
+.cs-review-group[open]>summary{margin-bottom:8px}
+.cs-tree-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cs-tree-tools input{flex:1 1 140px;min-width:100px;width:100%}
+.cs-tree-tools select,.cs-tree-tools button{font:inherit;font-size:.78rem;max-width:100%;padding:5px 7px}
+.cs-tree-legend{display:flex;flex-wrap:wrap;gap:4px 9px}
+.cs-tree-stats{font-size:.78rem;opacity:.8}
+.cs-tree-scroll{max-height:510px;overflow:auto;border:1px solid var(--border,#8884);border-radius:6px;padding:4px;min-width:0}
+.cs-dir-row,.cs-tree-file{display:flex;align-items:center;gap:6px;min-height:29px;padding:3px 5px;font-size:.86rem}
+.cs-dir-row{cursor:pointer;list-style:none;font-weight:550;min-width:0}
+.cs-dir-row::-webkit-details-marker{display:none}
+.cs-dir-row::before{content:"▸";font-size:.85em;opacity:.7;flex:none}
+.cs-tree-dir[open]>.cs-dir-row::before{content:"▾"}
+.cs-dir-row:hover,.cs-tree-file:hover{background:#8881}
+.cs-tree-children{margin-left:11px;padding-left:7px;border-left:1px solid var(--border,#8884)}
+.cs-dir-name{min-width:0;overflow-wrap:anywhere}
+.cs-dir-count{font-variant-numeric:tabular-nums;font-size:.73rem;color:inherit;opacity:.65}
+.cs-dir-marks{display:flex;flex-wrap:wrap;gap:3px;margin-left:auto;justify-content:flex-end}
+.cs-folder-icon,.cs-file-icon{width:12px;height:10px;flex:none;border:1px solid currentColor;border-radius:2px;opacity:.65}
+.cs-folder-icon{color:#bc8a36;background:#bc8a3620;position:relative}
+.cs-folder-icon::before{content:"";position:absolute;top:-4px;left:0;width:6px;height:3px;border:1px solid currentColor;border-bottom:0;border-radius:2px 2px 0 0}
+.cs-file-icon{width:9px;height:12px;border-radius:1px}
+.cs-tree-file{flex-wrap:wrap;border-radius:4px}
+.cs-tree-file .cs-file{font-size:inherit;flex:1;min-width:60px;padding:2px 0;text-decoration:none;color:inherit}
+.cs-tree-file .cs-file:hover{text-decoration:underline}
+.cs-tree-file.is-active{outline:1px solid #4386d4;background:#4386d415}
+.cs-tree-file input[type=checkbox]{flex:none;margin:0}
+.cs-change{font-size:.72rem;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;padding:1px 4px;border-radius:3px;color:var(--cs-change-fg,inherit);background:var(--cs-change-bg,transparent)}
+.cs-tree-file[data-change] .cs-file-icon{color:var(--cs-change-fg,inherit)}
+[data-change=added]{--cs-change-fg:#15803d;--cs-change-bg:#16a34a18}
+[data-change=modified]{--cs-change-fg:#1d64b3;--cs-change-bg:#3986e218}
+[data-change=deleted]{--cs-change-fg:#c43d43;--cs-change-bg:#ef444418}
+[data-change=conflict],[data-change=blocked]{--cs-change-fg:#b5650b;--cs-change-bg:#f59e0b20}
+[data-change=untracked]{--cs-change-fg:#7955ba;--cs-change-bg:#9b73d91c}
+.cs-block-reason{flex-basis:100%;font-size:.72rem;color:var(--cs-change-fg,inherit);padding-left:20px}
+.cs-diff{white-space:normal;max-height:590px;min-height:140px;padding:0;font-size:.8rem}
+.cs-diff-title{position:sticky;top:0;background:var(--bg,#f5f5f5);color:var(--text,#262626);padding:10px;font-weight:650;overflow-wrap:anywhere;border-bottom:1px solid var(--border,#8885)}
+.cs-diff-lines{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow:auto}
+.cs-diff-line{white-space:pre;padding:1px 9px;min-width:max-content;line-height:1.5}
+.cs-diff-line[data-line=added]{background:#16a34a1b;color:#16823c}
+.cs-diff-line[data-line=deleted]{background:#ef44441b;color:#c43d43}
+.cs-diff-line[data-line=hunk]{background:#3986e219;color:#2268b3}
+.cs-diff-line[data-line=meta]{opacity:.72}
+@media(prefers-color-scheme:dark){
+ [data-change=added]{--cs-change-fg:#73d99a}
+ [data-change=modified]{--cs-change-fg:#91c1ff}
+ [data-change=deleted]{--cs-change-fg:#ffa1a6}
+ [data-change=conflict],[data-change=blocked]{--cs-change-fg:#ffc478}
+ [data-change=untracked]{--cs-change-fg:#d0b0ff}
+ .cs-diff-line[data-line=added]{color:#73d99a}
+ .cs-diff-line[data-line=deleted]{color:#ffa1a6}
+ .cs-diff-line[data-line=hunk]{color:#91c1ff}
+ .cs-diff-title{background:var(--bg,#272727);color:var(--text,#eee)}
+}
+@media(max-width:900px){.cs-review-layout{grid-template-columns:minmax(0,1fr)}.cs-tree-scroll{max-height:400px}.cs-diff{min-height:80px;max-height:420px}}
+
+.cs-destinations>summary{cursor:pointer;font-weight:650}.cs-destination-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.cs-destination-fields label{display:grid;gap:5px;min-width:0}.cs-destination-fields input{width:100%;box-sizing:border-box}.cs-destinations[open]{gap:12px}

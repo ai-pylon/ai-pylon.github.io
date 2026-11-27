@@ -1,0 +1,75 @@
+/* page_automation — page-specific styles layered over the AppUI shell CSS. */
+.pa-content { padding: 1rem 1.25rem; }
+.pa-h { font-size: 1rem; font-weight: 600; margin: 1.1rem 0 .5rem; }
+.pa-h-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.pa-h-tools { display: flex; gap: .4rem; }
+.pa-tbtn { font: inherit; font-size: .8rem; font-weight: 500; padding: .25rem .6rem;
+  border: 1px solid var(--ai-border, rgba(128,128,128,.4)); border-radius: 6px;
+  background: transparent; color: inherit; cursor: pointer; }
+.pa-tbtn:hover:not(:disabled) { background: rgba(45,127,249,.12); border-color: rgba(45,127,249,.5); }
+.pa-tbtn:disabled { opacity: .4; cursor: default; }
+/* case/fragment JSON editor (#16) */
+.pa-editor { display: flex; flex-direction: column; gap: .5rem; }
+.pa-editor textarea { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: .82rem;
+  line-height: 1.45; padding: .5rem; border-radius: 6px; border: 1px solid var(--ai-border, rgba(128,128,128,.4));
+  background: rgba(128,128,128,.06); color: inherit; resize: vertical; }
+.pa-editor select, .pa-editor label { font: inherit; }
+.pa-ed-err { color: #c0392b; font-size: .82rem; min-height: 1.1em; white-space: pre-wrap; }
+.pa-hints { font-size: .78rem; border: 1px solid var(--ai-border, rgba(128,128,128,.3)); border-radius: 6px; padding: .3rem .5rem; }
+.pa-hints summary { cursor: pointer; font-weight: 600; }
+.pa-hint-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .8rem; margin-top: .4rem; }
+.pa-hint-cols ul { margin: .2rem 0 0; padding-left: 1rem; }
+.pa-hint-cols li { margin: .15rem 0; }
+.pa-hint-cols code { background: rgba(128,128,128,.15); padding: 0 .25rem; border-radius: 3px; }
+.pa-hint-p { opacity: .65; font-family: ui-monospace, monospace; }
+.pa-meta { opacity: .65; font-size: .82em; }
+.pa-err { color: #c0392b; }
+
+/* left sidebar lists */
+.pa-side-h { font-weight: 600; font-size: .85rem; opacity: .8; padding: .5rem .6rem .25rem; }
+.pa-side-item, .pa-run {
+  padding: .4rem .6rem; cursor: pointer; border-radius: 6px; font-size: .85rem;
+}
+.pa-side-item:hover, .pa-run:hover { background: rgba(128,128,128,.14); }
+.pa-side-item.sel { background: rgba(45,127,249,.18); outline: 1px solid rgba(45,127,249,.5); }
+
+/* screen rows: scheme | success screenshot */
+.pa-screen {
+  display: grid; grid-template-columns: 1fr 340px; gap: 1rem; align-items: start;
+  border: 1px solid var(--ai-border, rgba(128,128,128,.3));
+  border-radius: 10px; padding: .7rem .9rem; margin: .6rem 0;
+}
+.pa-scheme h4 { margin: 0 0 .3rem; font-size: .95rem; display: flex; gap: .5rem; align-items: center; }
+.pa-tag { font-family: ui-monospace, monospace; font-size: .72em; padding: .05em .45em; border-radius: 4px; background: rgba(128,128,128,.18); }
+.pa-tag.denied { background: rgba(192,57,43,.25); }
+.pa-tag.completed { background: rgba(39,174,96,.25); }
+.pa-tag.mfa, .pa-tag.password { background: rgba(241,196,15,.3); }
+.pa-tag.wait { background: rgba(52,152,219,.25); }
+.pa-frm { color: #2d7ff9; }
+.pa-when, .pa-do { font-family: ui-monospace, monospace; font-size: .78em; white-space: pre-wrap; opacity: .9; margin: .25rem 0 0; }
+.pa-shot { border: 1px solid var(--ai-border, rgba(128,128,128,.35)); border-radius: 6px; overflow: hidden; background: rgba(128,128,128,.06); }
+.pa-shot img { width: 100%; display: block; }
+.pa-shot .cap { font-size: .72em; padding: .25rem .5rem; opacity: .7; }
+.pa-noshot { font-size: .8em; opacity: .5; padding: 2rem 1rem; text-align: center; }
+
+/* run filmstrip */
+.pa-filmstrip { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pa-frame { width: 230px; border: 1px solid var(--ai-border, rgba(128,128,128,.4)); border-radius: 6px; overflow: hidden; }
+.pa-frame img { width: 100%; display: block; }
+.pa-frame .cap { font-size: .72em; padding: .25rem .4rem; opacity: .75; }
+
+/* run filmstrip header + collected data + per-frame action mapping */
+.pa-run-hdr { margin: .3rem 0 .6rem; font-size: .95rem; }
+.pa-report-btn { font: inherit; font-size: .8em; padding: .15rem .5rem; margin-left: .3rem;
+  border: 1px solid var(--appui-border, rgba(0,0,0,.2)); border-radius: 6px; cursor: pointer;
+  background: transparent; color: inherit; opacity: .8; vertical-align: middle; }
+.pa-report-btn:hover { opacity: 1; background: rgba(231,76,60,.1); border-color: rgba(231,76,60,.5); }
+.pa-collected { border: 1px solid rgba(39,174,96,.4); border-radius: 8px; padding: .5rem .7rem; margin: 0 0 .7rem; background: rgba(39,174,96,.06); }
+.pa-kv { font-family: ui-monospace, monospace; font-size: .8em; padding: .1rem 0; }
+.pa-acts { font-family: ui-monospace, monospace; font-size: .68em; opacity: .8; padding: .2rem .4rem; white-space: pre-wrap; border-top: 1px dashed rgba(128,128,128,.3); }
+.pa-run { border-bottom: 1px solid rgba(128,128,128,.15); padding: .45rem .6rem; }
+
+/* Runs tab scope header (makes the case-filtering explicit) */
+.pa-runs-scope { font-size: .8em; opacity: .85; padding: .4rem .6rem; border-bottom: 1px solid rgba(128,128,128,.2); }
+.pa-link { color: #2d7ff9; cursor: pointer; text-decoration: none; }
+.pa-link:hover { text-decoration: underline; }

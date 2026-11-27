@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Notifications — pylon-server</title>
+  <style>
+    :root{--bg:#171a1f;--panel:#22272e;--row:#2b313a;--border:#424a55;--text:#f0f3f6;
+          --muted:#9da7b3;--accent:#2f81f7;--ok:#4caf50;--pending:#f5c518;
+          --ongoing:#2f81f7;--bad:#d92d3a;}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
+      font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+    header{position:sticky;top:0;padding:12px 18px;background:var(--panel);
+      border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+    header h1{font-size:15px;margin:0;font-weight:600;flex:1}
+    header .count{font-size:12px;color:var(--muted)}
+    button{background:var(--row);color:var(--text);border:1px solid var(--border);
+      border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer}
+    button:hover{border-color:var(--accent)}
+    #closebtn{border-color:transparent;font-size:14px;line-height:1;padding:5px 9px;color:var(--muted)}
+    #closebtn:hover{border-color:var(--bad);color:var(--bad)}
+    main{max-width:760px;margin:0 auto;padding:16px}
+    @media (max-width:520px){
+      header{padding:9px 12px;gap:8px} header h1{font-size:14px}
+      header button{padding:4px 8px;font-size:11px}
+      main{padding:10px} .card{padding:10px 12px}
+    }
+    .card{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--muted);
+      border-radius:8px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:6px}
+    .card.unread{box-shadow:0 0 0 1px rgba(47,129,247,.25)}
+    .card.lv-ok{border-left-color:var(--ok)} .card.lv-pending{border-left-color:var(--pending)}
+    .card.lv-ongoing{border-left-color:var(--ongoing)} .card.lv-bad{border-left-color:var(--bad)}
+    .card .top{display:flex;align-items:center;gap:8px}
+    .card .title{font-weight:600;flex:1}
+    .card .src{font-size:11px;color:var(--muted)}
+    .card .msg{color:#d4dae1;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+    .card .code{font-family:ui-monospace,Consolas,monospace;font-size:16px;letter-spacing:1px;
+      background:var(--row);padding:3px 9px;border-radius:6px;cursor:pointer;display:inline-block}
+    .card .acts{display:flex;gap:8px;margin-top:2px}
+    .card a{color:var(--accent);text-decoration:none;font-size:12px}
+    .pill{font-size:10px;padding:1px 8px;border-radius:10px;background:var(--row);color:var(--muted)}
+    /* lifecycle status badge (#7): colors the MFA prompt's state at a glance */
+    .pill.st-active{background:rgba(245,197,24,.18);color:var(--pending)}
+    .pill.st-resolved{background:rgba(76,175,80,.18);color:var(--ok)}
+    .pill.st-denied{background:rgba(217,45,58,.2);color:var(--bad)}
+    .pill.st-expired{background:var(--row);color:var(--muted)}
+    /* a resolved/denied/expired prompt visibly greys out + no longer "live" */
+    .card.done{opacity:.55}
+    .card.done .title{text-decoration:line-through;text-decoration-thickness:1px}
+    .card.done.unread{box-shadow:none}
+    .empty{color:var(--muted);text-align:center;padding:40px 0}
+    .ts{font-size:11px;color:var(--muted)}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Notifications</h1>
+  <span class="count" id="count"></span>
+  <button id="refresh">Refresh</button>
+  <button id="readall">Mark all read</button>
+  <button id="clearall">Clear</button>
+  <button id="closebtn" title="Close" aria-label="Close">✕</button>
+</header>
+<main><div id="list"></div></main>
+<!-- EventBus (NEXT_ROUND #19): only the runtime services, no AppUI CSS - this pane keeps its own look -->
+<script src="/appui/loader.js"></script>
+<script>
+window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+['foundation', 'runtimeServices'].forEach(function (b) { window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js'; });
+try { window.AppUIReady = AppUIAssets.load('foundation', 'runtimeServices'); } catch (e) { window.AppUIReady = Promise.reject(e); }
+</script>
+<script src="assets/index-inline-1.js?v=2&amp;pa=1"></script>
+</body>
+</html>

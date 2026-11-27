@@ -1,0 +1,11 @@
+.mp-nav { display: flex; flex-direction: column; gap: 6px; padding: 10px; }
+.mp-nav-btn { text-align: left; padding: 7px 10px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; font-size: 13px; }
+.mp-nav-btn.active { background: rgba(59,130,246,0.16); border-color: #3b82f6; font-weight: 600; }
+.mp-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.mp-panel { border: 1px solid rgba(127,127,127,0.22); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mp-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mp-card { border: 1px solid rgba(127,127,127,0.22); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.mp-card-head { display: flex; justify-content: space-between; font-weight: 600; }
+.mp-meta { font-size: 12px; opacity: 0.75; }
+.mp-feedback { font-size: 13px; padding: 6px 10px; border-radius: 6px; background: rgba(127,127,127,0.12); }
+.mp-feedback.error { background: rgba(239,68,68,0.15); color: #dc2626; }

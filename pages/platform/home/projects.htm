@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="app-template" content="1.1.0"><title>Project Hub — pylon-server</title>
+<script src="/appui/loader.js"></script><script>AppUIAssets.loadCss();</script>
+<style>
+.ph-workspace{max-width:1200px;margin:0 auto;padding:18px 20px 36px;min-width:0;color:var(--text-primary)}
+.ph-workspace *,.ph-side *{box-sizing:border-box}
+.ph-links,.ph-workspace .intro,.ph-workspace .summary,.ph-workspace .actions,.ph-workspace .github-row,.ph-workspace .chips,.ph-side .chips{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ph-links{margin-bottom:14px;font-size:13px;gap:16px}.ph-workspace a{color:var(--accent)}
+.ph-workspace .intro{justify-content:space-between;margin-bottom:14px}.ph-workspace h2{font-size:20px;margin:0 0 8px}.ph-workspace h3{font-size:14px;margin:0 0 10px}
+.ph-workspace .muted,.ph-workspace .hint,.ph-side .desc,.ph-workspace .empty,.ph-side .empty{color:var(--text-secondary)}
+.ph-workspace .summary{margin-bottom:12px}.ph-workspace .metric{flex:1 1 130px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 15px}
+.ph-workspace .metric strong{font-size:24px;display:block;font-variant-numeric:tabular-nums}.ph-workspace .metric small{color:var(--text-secondary)}
+.ph-workspace button,.ph-side button{font:inherit;font-size:13px;cursor:pointer;color:var(--text-primary);background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-md);padding:7px 11px}
+.ph-workspace button:hover,.ph-side button:hover{background:var(--bg-hover);border-color:var(--accent)}
+.ph-workspace button:focus-visible,.ph-side button:focus-visible,.ph-workspace a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ph-workspace button:disabled{opacity:.5;cursor:not-allowed}
+.ph-side{padding:8px;display:flex;flex-direction:column;gap:8px;height:100%;min-height:0}
+.ph-side input,.ph-workspace .github-row input{background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px;font:inherit;min-width:0}
+.ph-side .project-list{display:flex;flex-direction:column;gap:5px;min-height:0;overflow:auto}
+.ph-side .project{display:grid;text-align:left;gap:5px;width:100%;padding:9px;min-width:0}
+.ph-side .project.active{background:var(--accent-muted);border-color:var(--accent)}
+.ph-side .project-title{font-weight:650;overflow-wrap:anywhere}.ph-side .desc{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.ph-workspace .chip,.ph-side .chip{display:inline-block;border:1px solid var(--border);border-radius:var(--radius-xl);padding:2px 7px;font-size:11px;color:var(--text-secondary);background:var(--bg-secondary)}
+.ph-workspace .chip.ok,.ph-side .chip.ok{color:var(--color-success);border-color:currentColor}.ph-workspace .chip.warn,.ph-side .chip.warn{color:var(--color-warning);border-color:currentColor}
+.ph-workspace .detail,.ph-workspace .github-panel{min-width:0;background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);padding:15px;margin-top:12px}
+.ph-workspace .detail{min-height:200px}.ph-workspace .section{border-top:1px solid var(--border);padding-top:14px;margin-top:18px}
+.ph-workspace pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:310px;overflow:auto;background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px;font:12px/1.6 var(--font-mono,monospace)}
+.ph-workspace ul{padding-left:20px;line-height:1.6}.ph-workspace li{overflow-wrap:anywhere}.ph-workspace #notice{font-size:13px;min-height:1em;color:var(--text-secondary)}
+.ph-workspace .inline-code{font:12px var(--font-mono,monospace);overflow-wrap:anywhere}.ph-workspace details{margin-top:8px}.ph-workspace summary{cursor:pointer;padding:6px 0;color:var(--text-secondary)}
+.ph-workspace .github-row input{flex:1 1 190px}.ph-workspace .github-result,.ph-workspace .hint{font-size:12px;overflow-wrap:anywhere}.ph-workspace .empty,.ph-side .empty{padding:14px;text-align:center}
+@media(max-width:600px){.ph-workspace{padding:10px}.ph-workspace .detail,.ph-workspace .github-panel{padding:10px}.ph-workspace .metric{flex-basis:95px}.ph-workspace .metric strong{font-size:20px}}
+</style></head>
+<body data-auto-init="false" data-page-id="platform-project-hub" data-page-title="Project Hub">
+<nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+<div id="app-main" class="ai-app-main">
+<aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+<main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+<div id="app-content-top" class="content-top"></div><div id="app-content-body" class="content-body"></div><div id="app-content-bottom" class="content-bottom"></div>
+</main><aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside></div>
+<footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+<template id="ph-template"><div class="ph-workspace"><div class="ph-links"><a href="/apps/platform/home/">Home</a><a href="/apps/platform/tool_todo/">TODO Manager</a><a href="/webssh">SSH 터미널</a><a href="/drive/">DriveManager</a></div><div class="intro"><div><h2 style="margin:0 0 5px">프로젝트 대시보드</h2><div class="muted">VM 프로젝트를 발견하고, 최신 상태를 확인한 후 새 채팅에서 이어서 작업합니다.</div></div><button id="refresh" class="secondary">↻ 새로고침</button></div><div class="summary" id="metrics"></div><section class="github-panel" aria-label="운영 및 TODO"><h3>운영 현황 · TODO 실행</h3><div class="github-row"><button id="opsRefresh">운영 상태 새로고침</button><button id="opsRunAll">전체 TODO 실행</button></div><div id="storageView" aria-live="polite"></div><pre id="opsView">조회 중…</pre></section><section id="githubAccount" class="github-panel" aria-label="GitHub 계정 연결"></section><p id="notice" role="status" aria-live="polite"></p><div class="layout"><section class="detail" id="detail" aria-label="선택한 프로젝트"><div class="empty">왼쪽에서 프로젝트를 선택하세요.</div></section></div></div></template>
+<script>window.APPUI_BUNDLES=window.APPUI_BUNDLES||{};['foundation','shell'].forEach(b=>window.APPUI_BUNDLES[b]='/appui/bundle/'+b+'.js');window.AppUIReady=AppUIAssets.load('foundation','shell');</script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);let projects=[],current=null,filter='',selection=0;
+
+// platform/home (ProjectHub merged in): the page's original /api/project-hub/* calls, mapped onto the app's ops.
+const OPS='/v1/apps/platform/home/';
+const route=path=>{const u=path.split('?')[0];let m;
+ if(u==='/api/project-hub/projects')return['projects',{}];
+ if((m=u.match(/^\/api\/project-hub\/projects\/(.+)$/)))return['project',{id:decodeURIComponent(m[1])}];
+ if(u==='/api/project-hub/operations')return['operations',{}];
+ if(u==='/api/project-hub/operations/run')return['run_todo',{confirm:true}];
+ if(u==='/api/project-hub/github/account')return['github_account',{}];
+ if(u==='/api/project-hub/github/permissions')return['github_permissions',{}];
+ if((m=u.match(/^\/api\/project-hub\/github\/status\/(.+)$/)))return['github_status',{project:decodeURIComponent(m[1])}];
+ if(u==='/api/project-hub/github/token')return['github_connect',{confirm:true}];
+ if(u==='/api/project-hub/github/disconnect')return['github_disconnect',{confirm:true}];
+ if((m=u.match(/^\/api\/project-hub\/github\/action\/(.+)$/)))return['github_action',{project:decodeURIComponent(m[1]),confirm:true}];
+ throw Error('Unknown call '+u)};
+const call=async(path,payload)=>{const [op,extra]=route(path);const r=await AppUIApi.requestResponse(OPS+op,{...(payload||{}),...extra},{method:'POST',credentials:'same-origin'});
+ if(r.status===401||r.status===403)throw Error('접근 권한이 없습니다. pylon-server 소유자로 로그인하세요.');const d=r.data||{};if(!r.ok||d.ok===false)throw Error(d.error||d._error||'HTTP '+r.status);return d};
+const api=path=>call(path);
+const post=(path,payload)=>call(path,payload);
+const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=String(text);if(cls)el.className=cls;return el};
+const ask=message=>AppUIDialog.confirmAsync(node('p',message),{title:'확인'});
+const commitMessage=()=>new Promise(resolve=>{AppUIDialog.prompt('커밋 메시지','Update project source',v=>resolve(v),{onClose:()=>resolve(null)});});
+const chip=(text,kind)=>node('span',text,'chip '+(kind||''));
+function renderList(){const host=$('projects');host.replaceChildren();for(const p of projects.filter(p=>[p.name,p.id,p.description].some(v=>String(v||'').toLowerCase().includes(filter)))){const btn=node('button',undefined,'project'+(current===p.id?' active':''));btn.type='button';btn.setAttribute('aria-pressed',String(current===p.id));btn.append(node('span',p.name,'project-title'),node('span',p.description||'설명 없음','desc'));const chips=node('div',undefined,'chips');chips.append(chip('TODO '+p.todo_open,p.todo_open?'warn':'ok'),chip('WIP '+(p.todo_wip||0)),chip('Blocked '+(p.todo_blocked||0)));for(const [name,status] of Object.entries(p.services||{}))chips.append(chip(name.replace('.service','')+' · '+status,status==='active'?'ok':'warn'));btn.append(chips);btn.onclick=()=>select(p.id);host.append(btn)}if(!host.childElementCount)host.append(node('div',projects.length?'검색 결과가 없습니다.':'등록된 프로젝트가 없습니다.','empty'))}
+function renderMetrics(){const host=$('metrics');host.replaceChildren();const items=[['프로젝트',projects.length],['남은 TODO',projects.reduce((n,p)=>n+p.todo_open,0)],['실행 중 서비스',projects.reduce((n,p)=>n+Object.values(p.services||{}).filter(x=>x==='active').length,0)]];for(const [label,value] of items){const box=node('div',undefined,'metric');box.append(node('strong',value),node('small',label));host.append(box)}}
+function section(title,text){const box=node('section',undefined,'section');box.append(node('h3',title),node('pre',text||'기록 없음'));return box}
+function makeResumePrompt(p){return `Google VM Project Hub에서 ${p.name} 프로젝트를 선택하고 작업을 이어서 진행해. pylon-server MCP를 사용해 python3 /home/frontjang/apps/project-hub/hub.py select ${p.id} 를 실행하여 상속된 AGENTS.md, docs/FINDINGS.md, WORK_STATUS.md, TODO.md를 확인하고 소스와 테스트 상태를 검증해. TODO ensure→begin→구현/연결된 테스트→complete(근거)→checkpoint 순서로 진행하고 불필요하게 멈추거나 계속할지 묻지 마.`}
+async function copy(text){try{await AppUICore.copyText(text);$('notice').textContent='새 채팅용 지시문을 복사했습니다.'}catch(e){$('notice').textContent='복사에 실패했습니다. 브라우저의 클립보드 권한을 확인하세요.'}}
+async function githubAccountPanel(){
+ const host=$('githubAccount');host.replaceChildren(node('h3','GitHub 계정 연결 · 전체 프로젝트 공통'));
+ const status=node('p','계정 상태 확인 중…','muted');host.append(status);
+ const row=node('div',undefined,'github-row');const input=node('input');input.type='password';input.placeholder='GitHub Fine-grained Personal Access Token';input.autocomplete='off';input.spellcheck=false;input.setAttribute('aria-label','GitHub 계정 인증 토큰');const connect=node('button','계정 연결');const disconnect=node('button','연결 해제','secondary');const verify=node('button','권한 검사','secondary');row.append(input,connect,verify,disconnect);host.append(row);
+ host.append(node('p','GitHub 계정은 한 번만 연결합니다. 이후 프로젝트별 Private 저장소 생성, Commit, Push 버튼을 사용하세요. 토큰은 서버에 안전하게 보관되며 다시 표시하지 않습니다.','hint'));
+ const result=node('p','','github-result');result.setAttribute('role','status');host.append(result);const permissionInfo=node('div',undefined,'github-result');host.append(permissionInfo);
+ const update=async()=>{try{const a=await api('/api/project-hub/github/account');if(a.available===false){status.textContent='GitHub은 VM에서만 사용합니다 (이 서버에서는 사용하지 않음).';row.style.display='none';for(const el of host.querySelectorAll('.hint'))el.style.display='none';return a}status.textContent=a.connected?'연결됨: '+a.login:'연결 안 됨 · GitHub 계정 frontjang-gif';input.style.display=a.connected?'none':'';connect.style.display=a.connected?'none':'';disconnect.style.display=a.connected?'':'none';verify.style.display=a.connected?'':'none';return a.connected}catch(e){status.textContent='GitHub 상태 조회 실패: '+e.message;return false}};
+ connect.onclick=async()=>{const token=input.value.trim();input.value='';if(!token)return;connect.disabled=true;result.textContent='GitHub 인증 확인 중…';try{const a=await post('/api/project-hub/github/token',{token});result.textContent=a.login+' 계정 연결 완료';await update();if(current)await select(current)}catch(e){result.textContent='연결 실패: '+e.message}finally{connect.disabled=false}};
+ verify.onclick=async()=>{verify.disabled=true;permissionInfo.replaceChildren(node('p','권한 확인 중…'));try{const data=await api('/api/project-hub/github/permissions');permissionInfo.replaceChildren();for(const c of data.checks||[]){const symbol=c.status==='pass'?'✓':c.status==='fail'?'✕':'?';permissionInfo.append(node('p',symbol+' '+c.name+' — '+c.detail,c.status==='fail'?'chip warn':'muted'))}const hint=node('p','필요 권한: Administration · Read and write (저장소 생성), Contents · Read and write (Push). 토큰의 Resource owner와 Repository access도 확인하세요.','hint');permissionInfo.append(hint);for(const repo of data.repositories||[])permissionInfo.append(node('p',repo.repo+': '+(repo.exists?'저장소 존재':'저장소 없음')+' / Push 권한 '+repo.push,'hint'));if(data.overall==='partial')permissionInfo.append(node('p','주의: 읽기 전용 검사로 저장소 생성·실제 Push 권한까지 확정할 수 없습니다. 실제 작업 성공으로 최종 검증됩니다.','hint'))}catch(e){permissionInfo.replaceChildren(node('p','권한 확인 실패: '+e.message))}finally{verify.disabled=false}};
+ disconnect.onclick=async()=>{if(!await ask('GitHub 계정 연결을 해제할까요? 저장소와 커밋은 유지됩니다.'))return;disconnect.disabled=true;try{await post('/api/project-hub/github/disconnect',{});result.textContent='계정 연결 해제 완료';await update();if(current)await select(current)}catch(e){result.textContent='해제 실패: '+e.message}finally{disconnect.disabled=false}};
+ await update();
+}
+async function githubPanel(p){
+ const panel=node('section',undefined,'github-panel');panel.append(node('h3','프로젝트 GitHub 관리 · 통합 저장소'));
+ const status=node('p','상태 조회 중…','muted');panel.append(status);
+ const actions=node('div',undefined,'github-row');const setup=node('button','Private 저장소 연결');const snapshot=node('button','Commit','secondary');const push=node('button','Push');const sync=node('button','Commit + Push');actions.append(setup,snapshot,push,sync);panel.append(actions);
+ const result=node('p','','github-result');result.setAttribute('role','status');panel.append(result);
+ const controls=[setup,snapshot,push,sync];const busy=flag=>{for(const b of controls)b.disabled=flag};
+ async function update(){try{const [a,g]=await Promise.all([api('/api/project-hub/github/account'),api('/api/project-hub/github/status/'+encodeURIComponent(p.id))]);status.textContent=g.repo+' / '+(g.subdirectory||'')+' · '+(g.remote_configured?'저장소 연결됨':'저장소 미연결')+(g.dirty?' · 미커밋 변경 있음':' · 작업 트리 깨끗함');setup.disabled=!a.connected;push.disabled=!a.connected;sync.disabled=!a.connected;return g}catch(e){status.textContent='조회 실패: '+e.message;return null}}
+ const run=async(action,message)=>{busy(true);result.textContent='작업 실행 중…';try{const r=await post('/api/project-hub/github/action/'+encodeURIComponent(p.id),{action,message});result.textContent='완료: '+(r.repository||r.repo||'Git 작업 성공');const g=await update();if(g){const info=await api('/api/project-hub/projects/'+encodeURIComponent(p.id));const meta=$('githubMeta');if(meta&&current===p.id)meta.textContent='경로: '+info.path+'\n최근 커밋: '+(info.last_commit||'없음')+'\n체크포인트: '+(info.last_checkpoint||'없음')+'\nGitHub: '+(info.github_repo||'연결 전')}}catch(e){result.textContent='실패: '+e.message}finally{busy(false);await update()}};
+ setup.onclick=async()=>{if(await ask(p.name+' Private Repository를 생성하거나 연결할까요?'))run('connect','Connect private repository')};
+ snapshot.onclick=async()=>{const m=await commitMessage();if(m)run('snapshot',m)};
+ push.onclick=async()=>{if(await ask(p.name+' 현재 커밋을 Push할까요?'))run('push','Push current commit')};
+ sync.onclick=async()=>{const m=await commitMessage();if(m&&await ask(p.name+' 변경사항을 커밋하고 Private 저장소에 Push할까요?'))run('sync',m)};
+ await update();return panel;
+}
+async function select(id){const ticket=++selection;current=id;renderList();const host=$('detail');host.replaceChildren(node('div','상세 정보 불러오는 중…','empty'));try{const p=await api('/api/project-hub/projects/'+encodeURIComponent(id));if(ticket!==selection)return;host.replaceChildren();host.append(node('h2',p.name),node('p',p.description||'','muted'));const chips=node('div',undefined,'chips');chips.append(chip('TODO '+p.todo_open,p.todo_open?'warn':'ok'),chip('완료 '+p.todo_done),chip('WIP '+(p.todo_wip||0)),chip('Blocked '+(p.todo_blocked||0)));for(const [name,status] of Object.entries(p.services||{}))chips.append(chip(name+' '+status,status==='active'?'ok':'warn'));host.append(chips);const actions=node('div',undefined,'actions');const resume=node('button','새 채팅 이어서 작업');resume.onclick=()=>copy(makeResumePrompt(p));actions.append(resume);if(p.github_repo){const link=node('a','GitHub 저장소 보기');link.href=p.github_repo;link.target='_blank';link.rel='noopener noreferrer';link.style.alignSelf='center';actions.append(link)}host.append(actions);const meta=node('p',undefined,'muted inline-code');meta.textContent='경로: '+p.path+'\n최근 커밋: '+(p.last_commit||'없음')+'\n체크포인트: '+(p.last_checkpoint||'없음')+'\nGitHub: '+(p.github_repo||'연결 전');meta.style.whiteSpace='pre-wrap';meta.id='githubMeta';host.append(meta);const github=await githubPanel(p);if(ticket!==selection)return;host.append(github);const todos=node('section',undefined,'section');todos.append(node('h3','다음 작업 · '+p.todo_open+'개'));const list=node('ul');for(const item of p.next_tasks||[])list.append(node('li',item));if(!list.childElementCount)list.append(node('li','현재 기록된 미완료 TODO가 없습니다.'));todos.append(list);host.append(todos);if(p.todo_checkpoint){const c=p.todo_checkpoint;const panel=node('section',undefined,'section');panel.append(node('h3','Development checkpoint'));panel.append(node('p',c.actionable+' actionable · '+(c.reconciled?'reconciled':'needs reconciliation'),'muted'));if(c.next)panel.append(node('p','Next #'+c.next.id+': '+c.next.title));const jobs=node('ul');for(const j of (c.linked_jobs||[]).slice(-8))jobs.append(node('li','#'+j.task_id+' · '+j.phase+' · '+j.status+' · '+j.id));if(!jobs.childElementCount)jobs.append(node('li','No retained linked jobs'));panel.append(jobs);const link=node('a','Open canonical TODO');link.href='/apps/platform/tool_todo/?app='+encodeURIComponent(p.id);panel.append(link);host.append(panel);}host.append(section('최근 작업 상태',p.status));const rules=node('details');rules.append(node('summary','상속된 작업 원칙 (AGENTS.md)'),node('pre',p.rules||'없음'));host.append(rules);const findings=node('details');findings.append(node('summary','누적 경험 · docs/FINDINGS.md'),node('pre',p.findings||'기록 없음'));host.append(findings);const readme=node('details');readme.append(node('summary','프로젝트 설명 (README.md)'),node('pre',p.readme||'없음'));host.append(readme)}catch(e){if(ticket===selection)host.replaceChildren(node('div',e.message,'empty'))}}
+async function refresh(){try{$('notice').textContent='';const data=await api('/api/project-hub/projects?ts='+Date.now());projects=data.projects||[];renderMetrics();if(current&&!projects.some(p=>p.id===current))current=null;renderList();void githubAccountPanel().catch(e=>{$('notice').textContent='GitHub 계정 정보 조회 실패: '+e.message});if(current)await select(current);else if(projects.length)await select(projects[0].id)}catch(e){$('projects').replaceChildren(node('div',e.message,'empty'));$('detail').replaceChildren();$('notice').textContent=e.message}}
+function renderStorage(s){const host=$('storageView');host.replaceChildren();if(!s)return;const level=s.level==='critical'?'위험':s.level==='warning'?'주의':'정상';host.append(node('h3','저장 공간 · '+level+' · '+s.used_percent+'% 사용'));const meter=node('progress');meter.max=100;meter.value=s.used_percent;meter.style.width='100%';meter.setAttribute('aria-label','디스크 사용률');host.append(meter,node('p',`여유 ${(s.free/1073741824).toFixed(2)} GiB / ${(s.total/1073741824).toFixed(2)} GiB`+(s.inode_free_percent==null?'':` · inode 여유 ${s.inode_free_percent}%`),'hint'));const table=node('table');table.style.width='100%';for(const g of s.groups||[]){const row=node('tr');const value=node('td',(g.bytes/1048576).toFixed(1)+' MiB'+(g.partial?' (부분 집계)':''));value.style.textAlign='right';row.append(node('td',g.label),value);table.append(row)}const details=node('details');details.append(node('summary','서비스별 저장 공간'),table);host.append(details,node('p','공유 라이브러리 및 운영체제 공간은 별도이며, 항목 합계는 전체 사용량과 다를 수 있습니다.','hint'))}
+async function opsRefresh(){try{const r=await api('/api/project-hub/operations');const m=r.metrics;renderStorage(m.storage);const rows=r.tasks.map(t=>`${t.status==='done'?'✓':t.status==='failed'?'✕':'○'} ${t.id} ${t.title} · ${t.status}`);$('opsView').textContent=`디스크 여유 ${Math.round(m.disk.free/1048576)} MB · Git ${m.git.commit} ${m.git.dirty?'(변경 있음)':''}\n`+Object.entries(m.services).map(([n,v])=>`${n}: ${v.state} / 자동 시작 ${v.enabled} / 재시작 ${v.restarts}`).join('\n')+'\n\n'+rows.join('\n')}catch(e){$('opsView').textContent=e.message}}
+function mountSide(host){
+ const side=node('div',undefined,'ph-side');const search=node('input');search.type='search';search.placeholder='프로젝트 검색';search.setAttribute('aria-label','프로젝트 검색');search.oninput=()=>{filter=search.value.trim().toLowerCase();renderList()};
+ const list=node('nav',undefined,'project-list');list.id='projects';list.setAttribute('aria-label','프로젝트 목록');side.append(search,list);host.append(side);renderList();
+}
+function mountContent(host){host.append($('ph-template').content.cloneNode(true));}
+window.AppUIReady.then(()=>{
+ AppUI.createApp({id:'platform-project-hub',title:'Project Hub',menubar:{theme:true},leftSidebar:{width:300,tabs:[{id:'projects',label:'프로젝트',active:true,render:mountSide}]},content:{render:mountContent},statusbar:{}});
+$('opsRefresh').onclick=opsRefresh;
+$('opsRunAll').onclick=async()=>{if(!await ask('전체 TODO를 재검증하고 백업 및 테스트를 실행할까요?'))return;try{await post('/api/project-hub/operations/run',{task:'all'});$('notice').textContent='TODO 실행 요청 완료. 잠시 후 운영 상태를 새로고침하세요.'}catch(e){$('notice').textContent=e.message}};
+$('refresh').onclick=refresh;refresh();opsRefresh();
+
+}).catch(e=>{document.getElementById('app-content-body').textContent='AppUI failed to load: '+e.message;});
+</script></body></html>

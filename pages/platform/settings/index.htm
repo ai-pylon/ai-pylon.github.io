@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="app-template" content="1.1.0">
+<title>pylon-server · Settings &amp; Home</title>
+<script src="/appui/loader.js"></script><script>AppUIAssets.loadCss();</script>
+<link rel="stylesheet" href="assets/settings.css?v=3">
+</head><body data-auto-init="false" data-page-id="platform-settings" data-page-title="Settings &amp; Home">
+<nav id="app-menubar" class="ai-app-menu"></nav><div id="app-main" class="ai-app-main"><aside id="app-left" class="ai-app-left"></aside><main id="app-content" class="ai-app-content content-layout"><div id="app-content-top" class="content-top"></div><div id="app-content-body" class="content-body"></div><div id="app-content-bottom" class="content-bottom"></div></main><aside id="app-right" class="ai-app-right"></aside></div><footer id="app-statusbar" class="ai-app-status"></footer>
+<template id="settings-template"><div class="wrap">
+  <header>
+    <h1>pylon-server</h1>
+    <div class="sub">Instance home · global settings</div>
+  </header>
+
+  <section class="card" id="system-health-card"><h2>System health</h2><div id="system-health-status" role="status">Loading…</div><p><a href="/apps/platform/ops/">Operations</a> · <a href="/apps/platform/deploy/">Repository sync</a> · <a href="/apps/platform/work_runner/">Work Runner</a> · <a href="/apps/platform/tool_todo/">Scoped TODOs</a></p><button id="system-health-refresh">Refresh health</button></section>
+  <section class="card" id="settings-card">
+    <h2>⚙ Global settings</h2>
+    <div class="setting-row">
+      <label>Workspace root</label>
+      <div class="setting-val">
+        <input id="ws-root" type="text" placeholder="e.g. C:\Users\you\OneDrive\pylon-server\workspace">
+        <button data-save="workspace_root">Save</button>
+      </div>
+      <div class="hint">The parent folder that holds workspaces (Default, CPI, …). Apps like CPI write their output under here.</div>
+    </div>
+    <div class="setting-row">
+      <label>Default workspace</label>
+      <div class="setting-val">
+        <input id="ws-default" type="text" placeholder="&lt;workspace root&gt;/Default">
+        <button data-save="default_workspace">Save</button>
+      </div>
+    </div>
+    <div class="meta" id="settings-meta"></div>
+    <div class="migrate-row">
+      <button id="btn-migrate">Migrate legacy config (~/.pylon-ws → ~/pylon-server/config)</button>
+      <span id="migrate-out" class="hint"></span>
+    </div>
+    <div id="settings-status" class="status"></div>
+  </section>
+
+  <section class="card"><h2>Owner account</h2><p>Manage the owner ID and password. Deployment tokens remain for automated deployment only after account setup.</p><p><a href="/apps/platform/accounts/">Manage accounts and sign-in methods</a></p></section>
+  <section class="card" id="server-address-card">
+    <h2>Server address · Dynamic DNS</h2>
+    <div class="setting-row"><label for="ddns-domain">DuckDNS subdomain</label><div class="setting-val"><input id="ddns-domain" value="pylon-server"> <span>.duckdns.org</span></div></div>
+    <div class="setting-row"><label for="ddns-interval">Update interval (seconds)</label><div class="setting-val"><input id="ddns-interval" type="number" min="60" max="2592000" value="300"></div></div>
+    <label><input type="checkbox" id="ddns-enabled"> Enable periodic updates</label>
+    <p id="ddns-credential" class="hint"></p>
+    <p><a id="ddns-credential-link" href="/apps/platform/credential/">Configure DuckDNS credential</a> · <a href="/apps/platform/work_runner/">Work Runner</a></p>
+    <div class="setting-val"><button id="ddns-save">Save schedule</button><button id="ddns-run">Update now</button><button id="ddns-resolve">Resolve DNS</button><button id="ddns-verify">Verify DNS + HTTPS</button><button id="ddns-refresh">Refresh status</button></div>
+    <pre id="ddns-status" class="meta"></pre>
+    <div class="hint">DNS only. Existing HTTPS gateway and MCP OAuth endpoints remain unchanged.</div>
+  </section>
+  <section class="card">
+    <h2>🚀 Apps <span id="app-count" class="count"></span></h2>
+    <input id="app-filter" type="text" placeholder="Filter apps…" class="filter">
+    <div id="launcher"></div>
+  </section>
+</div></template>
+<script>window.APPUI_BUNDLES=window.APPUI_BUNDLES||{};["foundation","shell"].forEach(function(b){window.APPUI_BUNDLES[b]="/appui/bundle/"+b+".js";});window.AppUIReady=AppUIAssets.load("foundation","shell","urlFields");</script>
+<script src="assets/settings.js?v=6&amp;pa=1"></script>
+</body></html>

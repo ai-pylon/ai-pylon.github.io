@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>AppUI Guide — pylon-server</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <style>
+    .g-wrap{padding:16px;max-width:980px}
+    .g-card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg,10px);padding:14px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+    .g-card h3{margin:0 0 4px;font-size:14px;color:var(--text-primary)}
+    .g-bundle{font-size:11px;color:var(--text-muted);font-family:var(--font-mono,monospace)}
+    .g-blurb{font-size:12px;color:var(--text-secondary);margin:4px 0 8px}
+    .g-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    pre.g-code{background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;font-family:var(--font-mono,monospace);white-space:pre-wrap;overflow:auto;max-height:220px;margin:6px 0 0;color:var(--text-primary)}
+    .g-sub{font-size:11px;color:var(--text-muted)}
+    .g-doc{white-space:pre-wrap;font-family:var(--font-mono,monospace);font-size:12px;line-height:1.5;color:var(--text-primary);background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:70vh;overflow:auto}
+    .g-field{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .g-field label{width:120px;text-align:right;font-size:12px;color:var(--text-secondary)}
+    .g-field input,.g-field textarea{flex:1;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px;font-family:inherit}
+    .g-msg{padding:8px 10px;border-radius:6px;margin-top:8px;font-size:12px;white-space:pre-wrap}
+    .g-ok{background:var(--accent-muted);color:var(--color-success)} .g-err{background:rgba(198,40,40,.12);color:var(--color-error)} .g-warn{background:rgba(230,81,0,.12);color:var(--color-warning)}
+    .g-doclist{display:flex;flex-direction:column;gap:6px}
+    .g-doclink{text-align:left;cursor:pointer}
+    .g-filter{flex:1;min-width:220px;max-width:420px;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12px}
+    .g-checks{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)}
+    .g-checks label{display:flex;gap:4px;align-items:center;cursor:pointer}
+    .g-grp td{background:var(--bg-secondary);cursor:pointer;user-select:none}
+    .g-caret{display:inline-block;width:12px;color:var(--text-muted)}
+    .g-gap{font-size:11px;color:var(--color-warning)}
+    .g-grp-title{font-size:12px;font-weight:600;color:var(--text-secondary);margin:10px 0 4px}
+    .g-detail h3 .g-bundle{margin-left:6px}
+    .g-ul{margin:2px 0 0 18px;padding:0;font-size:12px;color:var(--text-secondary)}
+    .g-sbhost{min-height:280px;max-height:60vh;overflow:auto;border:1px solid var(--border);border-radius:6px}
+  </style>
+</head>
+<body data-auto-init="false" data-page-id="platform-appui_guide" data-page-title="AppUI Guide">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <aside id="app-left" class="ai-app-left" aria-label="Left sidebar"></aside>
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div id="app-content-top" class="content-top"></div>
+      <div id="app-content-body" class="content-body"></div>
+      <div id="app-content-bottom" class="content-bottom"></div>
+    </main>
+    <aside id="app-right" class="ai-app-right" aria-label="Right sidebar"></aside>
+  </div>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation','shell','runtimeServices','tree','tabs','dataTable','contextMenu','toolbar']
+      .forEach(function (b) { window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js'; });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell', 'runtimeServices');
+  </script>
+  <script src="assets/startup-1.bundle.js?v=1&amp;pa=1"></script>
+</body>
+</html>

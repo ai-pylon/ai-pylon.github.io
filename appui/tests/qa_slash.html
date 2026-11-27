@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>appui slash-command routing QA</title></head>
+<body>
+<!-- Hermetic QA for AppUIChatSurface.slashAction — the pure /command → action
+     resolver behind composer slash commands. Loads ONLY content/chat-surface.js
+     (its IIFE defines window.AppUIChatSurface without touching its bundle deps
+     at load) and asserts the routing table + that unknown/non-slash lines map to
+     null (so they send as normal chat). No mount, no transport. -->
+<script src="../src/content/chat-surface.js" onerror="window.__APP_LOAD_ERR=1"></script>
+<script>
+(function () {
+  function ready() { return !!(window.AppUIChatSurface && typeof AppUIChatSurface.slashAction === 'function'); }
+  window.__qa = {
+    ready: ready,
+    appLoadErr: function () { return !!window.__APP_LOAD_ERR; },
+    act: function (line) { return AppUIChatSurface.slashAction(line); }
+  };
+})();
+</script>
+</body>
+</html>
