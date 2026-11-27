@@ -494,16 +494,17 @@ class TrayHost:
         # Note: CREATE_NO_WINDOW and DETACHED_PROCESS are mutually exclusive on Windows.
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
         helper = (
-            "import os, subprocess, time; "
-            f"dpid={dpid}; mypid={os.getpid()}; "
-            "no_win=getattr(subprocess,'CREATE_NO_WINDOW',0); "
-            "dpid and dpid!=mypid and subprocess.run(['taskkill','/F','/PID',str(dpid)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win); "
-            "time.sleep(2.0); "
-            f"rcmd={restart_cmd!r}; rscr={restart_script!r}; rcwd={restart_cwd!r}; py={py!r}; "
-            "if rcmd and os.path.isfile(rcmd): "
-            "subprocess.Popen(['cmd.exe','/c',rcmd],cwd=os.path.dirname(rcmd) or rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
-            "elif rscr and os.path.isfile(rscr): "
-            "subprocess.Popen([py,rscr],cwd=rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
+            "import os, subprocess, time\n"
+            f"dpid={dpid}; mypid={os.getpid()}\n"
+            "no_win=getattr(subprocess,'CREATE_NO_WINDOW',0)\n"
+            "if dpid and dpid!=mypid:\n"
+            "  subprocess.run(['taskkill','/F','/PID',str(dpid)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win)\n"
+            "time.sleep(2.0)\n"
+            f"rcmd={restart_cmd!r}; rscr={restart_script!r}; rcwd={restart_cwd!r}; py={py!r}\n"
+            "if rcmd and os.path.isfile(rcmd):\n"
+            "  subprocess.Popen(['cmd.exe','/c',rcmd],cwd=os.path.dirname(rcmd) or rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
+            "elif rscr and os.path.isfile(rscr):\n"
+            "  subprocess.Popen([py,rscr],cwd=rcwd,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=no_win|getattr(subprocess,'CREATE_NEW_PROCESS_GROUP',0))\n"
         )
         try:
             subprocess.Popen(
