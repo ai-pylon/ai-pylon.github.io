@@ -65,7 +65,7 @@
       "group": "file",
       "name": "gdrive",
       "title": "Google Drive",
-      "category": "file/storage",
+      "category": "provider/file",
       "description": "Google Drive file operations via the Drive API v3 (OAuth2 installed-app or service account). List/search/download files, and (confirm-gated) upload/mkdir/delete. OAuth client-secrets are sourced from the platform/credential vault (credential name 'gdrive-oauth-client', overridable via config.credential_name) — store them once with credential.set instead of hand-editing config.json; a config.json credentials_path still works as a fallback. The Google client libraries are optional — status reports actionable setup guidance when they or credentials aren't configured, rather than crashing. Token cache under repo data/.",
       "tags": [
         "storage"
@@ -131,7 +131,7 @@
       "group": "knowledge",
       "name": "vis",
       "title": "VIS — Virtual Information System",
-      "category": "knowledge/stores",
+      "category": "provider",
       "description": "The VIS layer: navigate HIERARCHICAL information (the tool catalog, MOM, a doc set, a code repo) one level at a time. An LLM can't read a large tree at once, so VIS lets it open a node, read its children's descriptions, and choose where to go next — multi-turn, progressive retrieval at a flat token cost per turn. Providers declare a `vis_provider` manifest block (children/node/search primitives), the framework aggregates them, and this app implements the navigation operators (open/expand/search/ancestors/…) + multi-turn session operators (focus/collapse/view) once, identical across providers. Addresses are vis://<provider>/<path>. Read-only by contract.",
       "tags": [
         "store"

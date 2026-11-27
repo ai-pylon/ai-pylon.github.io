@@ -1,98 +1,123 @@
 ﻿<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Google Drive</title>
-<script src="/appui/loader.js"></script>
-<style>
-  :root{--bg:#171a1f;--panel:#22272e;--row:#2b313a;--border:#424a55;--text:#f0f3f6;
-        --muted:#9da7b3;--accent:#2f81f7;--ok:#4caf50;--bad:#d92d3a;--warn:#e3b341;}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
-     font-family:'Segoe UI',system-ui,sans-serif;font-size:13px}
-  header{padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-  header h1{font-size:15px;margin:0;font-weight:600}
-  main{max-width:900px;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:14px}
-  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px}
-  .muted{color:var(--muted)}
-  .status{display:flex;flex-wrap:wrap;gap:16px;margin-top:8px}
-  .status div{font-size:12px} .status b{display:block;color:var(--muted);font-weight:600;margin-bottom:2px}
-  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
-  .dot.on{background:var(--ok)} .dot.off{background:var(--bad)} .dot.warn{background:var(--warn)}
-  table{width:100%;border-collapse:collapse;margin-top:8px} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);font-size:12px}
-  th{color:var(--muted);font-weight:600} td.name{word-break:break-all}
-  .sz{color:var(--muted);text-align:right;white-space:nowrap}
-  .ic{margin-right:6px}
-  .crumbs{margin-top:4px;font-size:12px} .crumbs a{color:var(--accent);cursor:pointer} .crumbs span{color:var(--muted)}
-  .msg{padding:8px 10px;border-radius:6px;margin-top:10px;font-size:12px}
-  .msg.ok{background:rgba(76,175,80,.15);color:var(--ok)} .msg.err{background:rgba(217,45,58,.15);color:var(--bad)}
-  button{background:var(--accent);border:0;color:#fff;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer}
-  button.ghost{background:none;border:1px solid var(--border);color:var(--muted)} button.ghost:hover{color:var(--text)}
-  button:disabled{opacity:.5;cursor:default}
-  .folder{cursor:pointer;color:var(--accent)}
-  /* additive AI assistant dock (CHAT_SIDEBAR #8) — collapsible, does not touch
-     the page's own layout when closed */
-  #gd-ai-dock{position:fixed;top:0;right:0;height:100vh;width:380px;max-width:92vw;
-    background:var(--panel);border-left:1px solid var(--border);box-shadow:-4px 0 18px rgba(0,0,0,.35);
-    display:flex;flex-direction:column;transform:translateX(100%);transition:transform .18s ease;z-index:50}
-  #gd-ai-dock.open{transform:translateX(0)}
-  #gd-ai-dock .gd-ai-head{display:flex;align-items:center;justify-content:space-between;
-    padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600}
-  #gd-ai-dock .gd-ai-body{flex:1;min-height:0;display:flex;flex-direction:column}
-  #gd-ai-toggle{background:none;border:1px solid var(--border);color:var(--muted)}
-  #gd-ai-toggle:hover{color:var(--text)}
-</style></head>
-<body>
-<header><h1>📁 Google Drive</h1><span class="muted" id="sub"></span>
-  <button class="ghost" id="gd-ai-toggle" style="margin-left:auto" title="Ask the Drive assistant">🤖 Assistant</button></header>
-<aside id="gd-ai-dock" aria-label="Drive AI assistant">
-  <div class="gd-ai-head"><span>🤖 Drive Assistant</span><button class="ghost" id="gd-ai-close" title="Close">✕</button></div>
-  <div class="gd-ai-body" id="gd-ai-host"></div>
-</aside>
-<main>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <strong>Connection</strong>
-      <span><button class="ghost" id="refreshStatus">Refresh</button>
-      <a href="/apps/platform/googleauth/">Manage Google connections</a> <button id="authBtn" style="display:none">Authenticate (in-app)</button></span>
-    </div>
-    <div class="status" id="status"><span class="muted">Checking…</span></div>
-    <div id="statusMsg"></div>
-    <div id="authFlow" style="display:none;margin-top:.6em">
-      <div style="margin-bottom:.4em"><a id="consentLink" target="_blank" rel="noopener">1. Open the Google consent page &#8599;</a></div>
-      <input id="codeBox" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="2. Paste the redirected URL (or the code) here">
-      <div style="margin-top:.5em"><button id="completeAuthBtn">3. Complete sign-in</button></div>
-    </div>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="app-template" content="1.1.0">
+  <title>Google Drive — AI Pylon</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <style>
+    .gd-wrap { max-width: 960px; margin: 0 auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .gd-head { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color, #424a55); }
+    .gd-head h1 { font-size: 16px; margin: 0; font-weight: 600; }
+    .card { background: var(--bg-secondary, #22272e); border: 1px solid var(--border-color, #424a55); border-radius: 10px; padding: 14px; }
+    .muted { color: var(--text-secondary, #9da7b3); }
+    .status { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; }
+    .status div { font-size: 12px; }
+    .status b { display: block; color: var(--text-secondary, #9da7b3); font-weight: 600; margin-bottom: 2px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+    .dot.on { background: #4caf50; } .dot.off { background: #d92d3a; } .dot.warn { background: #e3b341; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-color, #424a55); font-size: 12px; }
+    th { color: var(--text-secondary, #9da7b3); font-weight: 600; }
+    td.name { word-break: break-all; }
+    .sz { color: var(--text-secondary, #9da7b3); text-align: right; white-space: nowrap; }
+    .ic { margin-right: 6px; }
+    .crumbs { margin-top: 4px; font-size: 12px; }
+    .crumbs a { color: var(--accent-color, #2f81f7); cursor: pointer; }
+    .msg { padding: 8px 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; }
+    .msg.ok { background: rgba(76,175,80,.15); color: #4caf50; }
+    .msg.err { background: rgba(217,45,58,.15); color: #d92d3a; }
+    button { background: var(--accent-color, #2f81f7); border: 0; color: #fff; border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+    button.ghost { background: none; border: 1px solid var(--border-color, #424a55); color: var(--text-secondary, #9da7b3); }
+    button.ghost:hover { color: var(--text-primary, #f0f3f6); }
+    button:disabled { opacity: .5; cursor: default; }
+    .folder { cursor: pointer; color: var(--accent-color, #2f81f7); }
+    #gd-ai-dock { position: fixed; top: 0; right: 0; height: 100vh; width: 380px; max-width: 92vw; background: var(--bg-secondary, #22272e); border-left: 1px solid var(--border-color, #424a55); box-shadow: -4px 0 18px rgba(0,0,0,.35); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .18s ease; z-index: 50; }
+    #gd-ai-dock.open { transform: translateX(0); }
+    #gd-ai-dock .gd-ai-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-color, #424a55); font-size: 13px; font-weight: 600; }
+    #gd-ai-dock .gd-ai-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  </style>
+</head>
+<body data-auto-init="false" data-page-id="file-gdrive" data-page-title="Google Drive">
+  <nav id="app-menubar" class="ai-app-menu" aria-label="Application menu"></nav>
+  <div id="app-main" class="ai-app-main">
+    <main id="app-content" class="ai-app-content content-layout" aria-label="Application content">
+      <div class="gd-wrap">
+        <div class="gd-head">
+          <h1>📁 Google Drive</h1>
+          <span class="muted" id="sub"></span>
+          <button class="ghost" id="gd-ai-toggle" style="margin-left:auto" title="Ask the Drive assistant">🤖 Assistant</button>
+        </div>
+
+        <aside id="gd-ai-dock" aria-label="Drive AI assistant">
+          <div class="gd-ai-head"><span>🤖 Drive Assistant</span><button class="ghost" id="gd-ai-close" title="Close">✕</button></div>
+          <div class="gd-ai-body" id="gd-ai-host"></div>
+        </aside>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong>Connection</strong>
+            <span style="display:flex;align-items:center;gap:8px">
+              <button class="ghost" id="refreshStatus">Refresh</button>
+              <a href="/apps/platform/googleauth/">Manage Google connections</a>
+              <button id="authBtn" style="display:none">Authenticate (in-app)</button>
+            </span>
+          </div>
+          <div class="status" id="status"><span class="muted">Checking…</span></div>
+          <div id="statusMsg"></div>
+          <div id="authFlow" style="display:none;margin-top:.6em">
+            <div style="margin-bottom:.4em"><a id="consentLink" target="_blank" rel="noopener">1. Open the Google consent page &#8599;</a></div>
+            <input id="codeBox" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px" placeholder="2. Paste the redirected URL (or the code) here">
+            <div style="margin-top:.5em"><button id="completeAuthBtn">3. Complete sign-in</button></div>
+          </div>
+        </div>
+
+        <div class="card" id="setupCard" style="display:none">
+          <strong>OAuth client setup</strong>
+          <p class="muted" style="margin:.4em 0">Click <b>Set up automatically</b> — it finds a Google credentials file you already have (service-account key, or a <code>client_secret*.json</code> from Google Cloud, in <code>~/Downloads</code> / gcloud) and configures it for you. Or paste <code>client_secrets.json</code> contents manually below.</p>
+          <div style="margin:.4em 0"><button id="autoSetupBtn">Set up automatically</button></div>
+          <details style="margin-top:.4em"><summary class="muted" style="cursor:pointer">Paste manually instead</summary>
+            <textarea id="secretsBox" rows="7" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;margin-top:.4em" placeholder='{"installed":{"client_id":"…","client_secret":"…", …}}'></textarea>
+            <div style="margin-top:.5em"><button id="saveSecretsBtn">Save client secret</button></div>
+          </details>
+          <div id="setupMsg"></div>
+        </div>
+
+        <section class="card" id="syncCard">
+          <strong>Folder sync</strong>
+          <p class="muted">Save multiple Git project / Drive folder pairs. All directions honor local .gitignore rules. No files are deleted; two-way conflicts are reported.</p>
+          <label>Saved pair <select id="syncProfiles" aria-label="Saved sync pair"><option value="">New pair</option></select></label>
+          <div id="syncForm"></div>
+          <button id="syncSave">Save pair</button>
+          <button class="ghost" id="syncPreview">Preview local files</button>
+          <button id="syncRun">Sync</button>
+          <button class="ghost" id="syncStop" disabled>Stop</button>
+          <p><a id="syncDriveLink" target="_blank" rel="noopener" hidden>Open synced Drive folder</a></p>
+          <div id="syncMsg" role="status" aria-live="polite"></div>
+          <pre id="syncDetails" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+        </section>
+
+        <div class="card" id="filesCard" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <strong>My Drive</strong><span class="muted" id="filesSub"></span>
+          </div>
+          <div class="crumbs" id="crumbs"></div>
+          <div id="filesMsg"></div>
+          <table id="files"><thead><tr><th>Name</th><th>Type</th><th class="sz">Size</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </main>
   </div>
-  <div class="card" id="setupCard" style="display:none">
-    <strong>OAuth client setup</strong>
-    <p class="muted" style="margin:.4em 0">Click <b>Set up automatically</b> — it finds a Google credentials file you already have (service-account key, or a <code>client_secret*.json</code> from Google Cloud, in <code>~/Downloads</code> / gcloud) and configures it for you. Or paste <code>client_secrets.json</code> contents manually below.</p>
-    <div style="margin:.4em 0"><button id="autoSetupBtn">Set up automatically</button></div>
-    <details style="margin-top:.4em"><summary class="muted" style="cursor:pointer">Paste manually instead</summary>
-      <textarea id="secretsBox" rows="7" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;margin-top:.4em" placeholder='{"installed":{"client_id":"…","client_secret":"…", …}}'></textarea>
-      <div style="margin-top:.5em"><button id="saveSecretsBtn">Save client secret</button></div>
-    </details>
-    <div id="setupMsg"></div>
-  </div>
-  <section class="card" id="syncCard">
-    <strong>Folder sync</strong>
-    <p class="muted">Save multiple Git project / Drive folder pairs. All directions honor local .gitignore rules. No files are deleted; two-way conflicts are reported.</p>
-    <label>Saved pair <select id="syncProfiles" aria-label="Saved sync pair"><option value="">New pair</option></select></label>
-    <div id="syncForm"></div>
-    <button id="syncSave">Save pair</button>
-    <button class="ghost" id="syncPreview">Preview local files</button>
-    <button id="syncRun">Sync</button>
-    <button class="ghost" id="syncStop" disabled>Stop</button>
-    <p><a id="syncDriveLink" target="_blank" rel="noopener" hidden>Open synced Drive folder</a></p>
-    <div id="syncMsg" role="status" aria-live="polite"></div>
-    <pre id="syncDetails" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
-  </section>
-  <div class="card" id="filesCard" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <strong>My Drive</strong><span class="muted" id="filesSub"></span>
-    </div>
-    <div class="crumbs" id="crumbs"></div>
-    <div id="filesMsg"></div>
-    <table id="files"><thead><tr><th>Name</th><th>Type</th><th class="sz">Size</th></tr></thead><tbody></tbody></table>
-  </div>
-</main>
-<script src="assets/index-inline-1.js?v=2&amp;pa=1"></script>
-</body></html>
+  <footer id="app-statusbar" class="ai-app-status" aria-label="Application status"></footer>
+  <script>
+    window.APPUI_BUNDLES = window.APPUI_BUNDLES || {};
+    ['foundation', 'shell'].forEach(function (b) {
+      window.APPUI_BUNDLES[b] = '/appui/bundle/' + b + '.js';
+    });
+    window.AppUIReady = AppUIAssets.load('foundation', 'shell');
+  </script>
+  <script src="assets/index-inline-1.js?v=3&amp;pa=1"></script>
+</body>
+</html>

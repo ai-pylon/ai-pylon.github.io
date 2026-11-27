@@ -566,16 +566,19 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     function buildTreeData(items) {{
       const groups = new Map();
       for (const a of items) {{
-        const g = a.group || 'other';
-        if (!groups.has(g)) groups.set(g, new Map());
-        const cat = (a.category || g).trim();
+        const cat = (a.category || a.group || 'other').trim();
+        let g = a.group || 'other';
         let sub = '';
-        if (cat.includes('/')) {{
+        if (cat === 'provider' || cat.startsWith('provider/')) {{
+          g = 'provider';
+          sub = cat.includes('/') ? cat.split('/').slice(1).join('/') : '';
+        }} else if (cat.includes('/')) {{
           const parts = cat.split('/');
           if (parts[1] && parts[1] !== g) sub = parts.slice(1).join('/');
         }} else if (cat !== g) {{
           sub = cat;
         }}
+        if (!groups.has(g)) groups.set(g, new Map());
         const subMap = groups.get(g);
         if (!subMap.has(sub)) subMap.set(sub, []);
         subMap.get(sub).push(a);

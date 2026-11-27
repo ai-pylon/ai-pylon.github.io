@@ -3,7 +3,7 @@ var APP="file/gdrive";
 var FOLDER='application/vnd.google-apps.folder';
 var stack=[{id:'root',name:'My Drive'}];
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-async function api(op,body){var r=await fetch("/v1/apps/"+APP+"/"+op,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});return await r.json();}
+async function api(op,body){if(window.AppUIApi&&typeof window.AppUIApi.post==='function'){return await window.AppUIApi.post("/v1/apps/"+APP+"/"+op,body||{});}var r=await fetch("/v1/apps/"+APP+"/"+op,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});return await r.json();}
 function kb(n){n=parseInt(n||0,10);if(!n)return'';if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
 function msg(id,t,k){document.getElementById(id).innerHTML=t?('<div class="msg '+(k||'ok')+'">'+esc(t)+'</div>'):'';}
 
