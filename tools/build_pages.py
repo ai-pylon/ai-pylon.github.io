@@ -327,14 +327,14 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
   <div id="auth-gate" class="auth-gate">
     <div class="auth-card">
       <h1>AI Pylon Sign In</h1>
-      <div class="auth-sub">Sign in to a Pylon server to open your workspace.</div>
-      <div class="presets" style="margin-bottom:10px">
-        <button type="button" class="btn sec" id="auth-preset-vm">VM</button>
-        <button type="button" class="btn sec" id="auth-preset-local">Local (8910)</button>
-      </div>
+      <div class="auth-sub">Enter any Pylon server URL or pick a saved server below.</div>
+      <div id="auth-saved-pills" class="presets" style="margin-bottom:10px"></div>
       <div class="auth-field">
         <label for="auth-server">Server URL</label>
-        <input id="auth-server" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
+        <div style="display:flex;gap:6px">
+          <input id="auth-server" type="text" placeholder="https://your-server.example or http://127.0.0.1:8910" required>
+          <button type="button" class="btn sec" id="auth-save-url" title="Save server URL in browser">Save</button>
+        </div>
       </div>
       <div class="auth-tabs">
         <button type="button" class="auth-tab active" id="tab-pw">ID / Password</button>
@@ -467,8 +467,14 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }}
 
     function normalizeOrigin(raw) {{
+      let s = (raw || '').trim();
+      if (!s) return '';
+      if (!/^https?:\/\//i.test(s)) {{
+        const isLocal = /^(?:127\.|localhost|\[::1\]|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/i.test(s);
+        s = (isLocal ? 'http://' : 'https://') + s;
+      }}
       try {{
-        const u = new URL((raw || '').trim());
+        const u = new URL(s);
         if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
         return u.origin;
       }} catch (_) {{
@@ -878,7 +884,40 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     document.getElementById('q').addEventListener('input', renderTree);
 
     const AUTH_USER_KEY = 'pylon.auth_user';
+    const LAST_AUTH_SRV_KEY = 'pylon.last_auth_server';
     let authMode = 'pw';
+
+    function syncOAuthLink() {{
+      const norm = normalizeOrigin(document.getElementById('auth-server').value) || DEFAULT_VM;
+      const link = document.getElementById('auth-google-btn');
+      if (link) link.href = norm + '/_pylon/login';
+    }}
+
+    function renderAuthSavedPills() {{
+      const wrap = document.getElementById('auth-saved-pills');
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      const curVal = normalizeOrigin(document.getElementById('auth-server').value);
+      for (const origin of servers) {{
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'btn ' + (origin === curVal ? '' : 'sec');
+        pill.style.fontSize = '0.76rem';
+        pill.style.padding = '4px 8px';
+        const host = origin.replace(/^https?:\/\//, '');
+        pill.textContent = host;
+        pill.title = origin;
+        pill.addEventListener('click', () => {{
+          document.getElementById('auth-server').value = origin;
+          document.getElementById('auth-token').value = getTokens()[origin] || '';
+          try {{ localStorage.setItem(LAST_AUTH_SRV_KEY, origin); }} catch (_) {{}}
+          setAuthTab(origin.includes('127.0.0.1') || origin.includes('localhost') ? 'tok' : 'pw');
+          syncOAuthLink();
+          renderAuthSavedPills();
+        }});
+        wrap.appendChild(pill);
+      }}
+    }}
 
     function updateAuthBar() {{
       const toks = getTokens();
@@ -899,10 +938,13 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     function openAuthGate(prefillOrigin) {{
       const gate = document.getElementById('auth-gate');
       const srvInput = document.getElementById('auth-server');
-      srvInput.value = prefillOrigin || servers[0] || DEFAULT_LOCAL;
+      const lastSaved = normalizeOrigin(localStorage.getItem(LAST_AUTH_SRV_KEY) || '');
+      srvInput.value = prefillOrigin || lastSaved || servers[0] || DEFAULT_LOCAL;
       document.getElementById('auth-err').textContent = '';
       document.getElementById('auth-pass').value = '';
       document.getElementById('auth-token').value = getTokens()[srvInput.value] || '';
+      syncOAuthLink();
+      renderAuthSavedPills();
       gate.classList.remove('hidden');
     }}
 
@@ -921,13 +963,24 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
 
     document.getElementById('tab-pw').addEventListener('click', () => setAuthTab('pw'));
     document.getElementById('tab-tok').addEventListener('click', () => setAuthTab('tok'));
-    document.getElementById('auth-preset-vm').addEventListener('click', () => {{
-      document.getElementById('auth-server').value = DEFAULT_VM;
-      setAuthTab('pw');
-    }});
-    document.getElementById('auth-preset-local').addEventListener('click', () => {{
-      document.getElementById('auth-server').value = DEFAULT_LOCAL;
-      setAuthTab('tok');
+    document.getElementById('auth-server').addEventListener('input', syncOAuthLink);
+    document.getElementById('auth-save-url').addEventListener('click', () => {{
+      const errEl = document.getElementById('auth-err');
+      const norm = normalizeOrigin(document.getElementById('auth-server').value);
+      if (!norm) {{
+        errEl.textContent = 'Enter a valid server URL (e.g. https://... or 127.0.0.1:8910).';
+        return;
+      }}
+      document.getElementById('auth-server').value = norm;
+      if (!servers.includes(norm)) {{
+        servers.unshift(norm);
+        saveServers();
+      }}
+      try {{ localStorage.setItem(LAST_AUTH_SRV_KEY, norm); }} catch (_) {{}}
+      errEl.textContent = '';
+      syncOAuthLink();
+      renderAuthSavedPills();
+      loadServer(norm);
     }});
     document.getElementById('auth-guest-link').addEventListener('click', e => {{
       e.preventDefault();
@@ -983,7 +1036,10 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
           throw new Error(data.error || ('HTTP ' + res.status));
         }}
         setToken(origin, data.token);
-        try {{ localStorage.setItem(AUTH_USER_KEY, data.user || 'owner'); }} catch (_) {{}}
+        try {{
+          localStorage.setItem(AUTH_USER_KEY, data.user || 'owner');
+          localStorage.setItem(LAST_AUTH_SRV_KEY, origin);
+        }} catch (_) {{}}
         if (!servers.includes(origin)) {{
           servers.unshift(origin);
           saveServers();
