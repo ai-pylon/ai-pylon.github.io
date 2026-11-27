@@ -285,6 +285,37 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }}
     .welcome h2 {{ margin: 0 0 8px; color: var(--text); font-size: 1.25rem; }}
     .welcome p {{ margin: 4px 0; max-width: 480px; font-size: 0.9rem; }}
+    .auth-gate {{
+      position: fixed; inset: 0; z-index: 999; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }}
+    .auth-gate.hidden {{ display: none; }}
+    .auth-card {{
+      width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; box-shadow: 0 12px 32px #0004;
+    }}
+    .auth-card h1 {{ margin: 0 0 4px; font-size: 1.35rem; }}
+    .auth-sub {{ font-size: 0.84rem; color: var(--muted); margin-bottom: 16px; }}
+    .auth-tabs {{ display: flex; gap: 6px; margin-bottom: 14px; }}
+    .auth-tab {{
+      flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted); cursor: pointer; font-size: 0.84rem; font-weight: 600;
+    }}
+    .auth-tab.active {{ background: var(--active); color: var(--accent); border-color: var(--accent); }}
+    .auth-field {{ margin-bottom: 10px; }}
+    .auth-field label {{ display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }}
+    .auth-field input {{
+      width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 0.9rem;
+    }}
+    .auth-err {{ font-size: 0.82rem; color: #ef4444; margin: 8px 0; min-height: 18px; }}
+    .auth-submit {{ width: 100%; padding: 9px 14px; font-size: 0.92rem; }}
+    .auth-div {{ text-align: center; font-size: 0.76rem; color: var(--muted); margin: 12px 0; }}
+    .auth-alt {{ display: flex; flex-direction: column; gap: 8px; }}
+    .auth-skip {{ margin-top: 12px; text-align: center; font-size: 0.78rem; }}
+    .auth-skip a {{ color: var(--muted); text-decoration: none; }}
+    .auth-skip a:hover {{ color: var(--accent); text-decoration: underline; }}
+    .user-pill {{ font-size: 0.75rem; color: var(--ok); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }}
     @media (max-width: 760px) {{
       .layout {{ flex-direction: column; }}
       .sidebar {{ width: 100%; max-width: none; height: 48vh; border-right: 0; border-bottom: 1px solid var(--border); }}
@@ -293,13 +324,61 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
   </style>
 </head>
 <body>
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-card">
+      <h1>AI Pylon Sign In</h1>
+      <div class="auth-sub">Sign in to a Pylon server to open your workspace.</div>
+      <div class="presets" style="margin-bottom:10px">
+        <button type="button" class="btn sec" id="auth-preset-vm">VM</button>
+        <button type="button" class="btn sec" id="auth-preset-local">Local (8910)</button>
+      </div>
+      <div class="auth-field">
+        <label for="auth-server">Server URL</label>
+        <input id="auth-server" type="url" placeholder="https://pylon-server.duckdns.org or http://127.0.0.1:8910" required>
+      </div>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-pw">ID / Password</button>
+        <button type="button" class="auth-tab" id="tab-tok">API Token</button>
+      </div>
+      <form id="auth-form">
+        <div id="fields-pw">
+          <div class="auth-field">
+            <label for="auth-user">Username</label>
+            <input id="auth-user" type="text" autocomplete="username" placeholder="admin">
+          </div>
+          <div class="auth-field">
+            <label for="auth-pass">Password</label>
+            <input id="auth-pass" type="password" autocomplete="current-password" placeholder="••••••••">
+          </div>
+        </div>
+        <div id="fields-tok" style="display:none">
+          <div class="auth-field">
+            <label for="auth-token">Bearer / Local API Token</label>
+            <input id="auth-token" type="password" placeholder="Paste token (from tray Copy Local API Token)">
+          </div>
+        </div>
+        <div id="auth-err" class="auth-err"></div>
+        <button type="submit" class="btn auth-submit" id="auth-submit-btn">Sign In</button>
+      </form>
+      <div class="auth-div">or</div>
+      <div class="auth-alt">
+        <a id="auth-google-btn" class="btn sec" href="https://pylon-server.duckdns.org/_pylon/login" target="_blank" style="text-align:center;text-decoration:none">Sign in with VM / Google OAuth ↗</a>
+      </div>
+      <div class="auth-skip"><a href="#" id="auth-guest-link">Continue without signing in (read-only catalog)</a></div>
+    </div>
+  </div>
+
   <div class="layout">
     <aside class="sidebar">
       <div class="sb-head">
         <div class="brand-row">
           <div class="brand">AI Pylon</div>
-          <span id="server-count" class="badge">0 servers</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="signed-user" class="user-pill" style="display:none"></span>
+            <button type="button" id="btn-auth-action" class="btn sec" style="padding:2px 8px;font-size:0.74rem">Sign In</button>
+          </div>
         </div>
+        <span id="server-count" style="display:none">0 servers</span>
         <form id="server-form" class="server-form">
           <input id="server-url" type="url" placeholder="Add server (https://... or http://127.0.0.1:8910)" required>
           <button type="submit" class="btn">+ Add</button>
@@ -542,13 +621,7 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
         keyBtn.textContent = hasTok ? '🔑' : '🔓';
         keyBtn.addEventListener('click', e => {{
           e.stopPropagation();
-          const cur = getTokens()[origin] || '';
-          const next = prompt('Bearer token for ' + origin + ' (leave empty to clear):', cur);
-          if (next === null) return;
-          setToken(origin, next);
-          renderTree();
-          const frame = document.getElementById('app-frame');
-          if (frame.src && activeKey.startsWith(origin + '::')) frame.src = frame.src;
+          openAuthGate(origin);
         }});
         srvRow.appendChild(keyBtn);
 
@@ -804,8 +877,138 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }});
     document.getElementById('q').addEventListener('input', renderTree);
 
+    const AUTH_USER_KEY = 'pylon.auth_user';
+    let authMode = 'pw';
+
+    function updateAuthBar() {{
+      const toks = getTokens();
+      const hasAny = Object.keys(toks).length > 0;
+      const userEl = document.getElementById('signed-user');
+      const btn = document.getElementById('btn-auth-action');
+      const uname = localStorage.getItem(AUTH_USER_KEY) || '';
+      if (hasAny) {{
+        userEl.textContent = uname || 'Signed in';
+        userEl.style.display = 'inline-block';
+        btn.textContent = 'Sign Out';
+      }} else {{
+        userEl.style.display = 'none';
+        btn.textContent = 'Sign In';
+      }}
+    }}
+
+    function openAuthGate(prefillOrigin) {{
+      const gate = document.getElementById('auth-gate');
+      const srvInput = document.getElementById('auth-server');
+      srvInput.value = prefillOrigin || servers[0] || DEFAULT_LOCAL;
+      document.getElementById('auth-err').textContent = '';
+      document.getElementById('auth-pass').value = '';
+      document.getElementById('auth-token').value = getTokens()[srvInput.value] || '';
+      gate.classList.remove('hidden');
+    }}
+
+    function closeAuthGate() {{
+      document.getElementById('auth-gate').classList.add('hidden');
+    }}
+
+    function setAuthTab(mode) {{
+      authMode = mode;
+      document.getElementById('tab-pw').classList.toggle('active', mode === 'pw');
+      document.getElementById('tab-tok').classList.toggle('active', mode === 'tok');
+      document.getElementById('fields-pw').style.display = mode === 'pw' ? 'block' : 'none';
+      document.getElementById('fields-tok').style.display = mode === 'tok' ? 'block' : 'none';
+      document.getElementById('auth-err').textContent = '';
+    }}
+
+    document.getElementById('tab-pw').addEventListener('click', () => setAuthTab('pw'));
+    document.getElementById('tab-tok').addEventListener('click', () => setAuthTab('tok'));
+    document.getElementById('auth-preset-vm').addEventListener('click', () => {{
+      document.getElementById('auth-server').value = DEFAULT_VM;
+      setAuthTab('pw');
+    }});
+    document.getElementById('auth-preset-local').addEventListener('click', () => {{
+      document.getElementById('auth-server').value = DEFAULT_LOCAL;
+      setAuthTab('tok');
+    }});
+    document.getElementById('auth-guest-link').addEventListener('click', e => {{
+      e.preventDefault();
+      closeAuthGate();
+    }});
+    document.getElementById('btn-auth-action').addEventListener('click', () => {{
+      const hasAny = Object.keys(getTokens()).length > 0;
+      if (hasAny) {{
+        try {{
+          localStorage.removeItem(TOKENS_KEY);
+          localStorage.removeItem(AUTH_USER_KEY);
+        }} catch (_) {{}}
+        updateAuthBar();
+        renderTree();
+        openAuthGate();
+      }} else {{
+        openAuthGate();
+      }}
+    }});
+
+    document.getElementById('auth-form').addEventListener('submit', async e => {{
+      e.preventDefault();
+      const errEl = document.getElementById('auth-err');
+      const btn = document.getElementById('auth-submit-btn');
+      const origin = normalizeOrigin(document.getElementById('auth-server').value);
+      if (!origin) {{
+        errEl.textContent = 'Enter a valid http:// or https:// server URL.';
+        return;
+      }}
+      const body = authMode === 'pw'
+        ? {{ username: document.getElementById('auth-user').value.trim(), password: document.getElementById('auth-pass').value }}
+        : {{ token: document.getElementById('auth-token').value.trim() }};
+      if (authMode === 'pw' && (!body.username || !body.password)) {{
+        errEl.textContent = 'Enter username and password.';
+        return;
+      }}
+      if (authMode === 'tok' && !body.token) {{
+        errEl.textContent = 'Paste a Bearer / Local API token.';
+        return;
+      }}
+      errEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      try {{
+        const res = await fetch(origin + '/_pylon/auth/login', {{
+          method: 'POST',
+          mode: 'cors',
+          headers: {{ 'Content-Type': 'application/json' }},
+          body: JSON.stringify(body),
+        }});
+        const data = await res.json().catch(() => ({{}}));
+        if (!res.ok || !data.ok || !data.token) {{
+          throw new Error(data.error || ('HTTP ' + res.status));
+        }}
+        setToken(origin, data.token);
+        try {{ localStorage.setItem(AUTH_USER_KEY, data.user || 'owner'); }} catch (_) {{}}
+        if (!servers.includes(origin)) {{
+          servers.unshift(origin);
+          saveServers();
+        }}
+        updateAuthBar();
+        closeAuthGate();
+        loadServer(origin);
+        const frame = document.getElementById('app-frame');
+        if (frame.src && activeKey.startsWith(origin + '::')) frame.src = frame.src;
+      }} catch (err) {{
+        errEl.textContent = 'Sign in failed: ' + err.message;
+      }} finally {{
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }}
+    }});
+
     servers = loadSavedServers();
     saveServers();
+    updateAuthBar();
+    if (Object.keys(getTokens()).length > 0) {{
+      closeAuthGate();
+    }} else {{
+      openAuthGate(servers[0] || DEFAULT_VM);
+    }}
     servers.forEach(loadServer);
     checkLocalDaemon();
     setInterval(checkLocalDaemon, 15000);
