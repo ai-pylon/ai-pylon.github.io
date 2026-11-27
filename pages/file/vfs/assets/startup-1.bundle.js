@@ -1,166 +1,128 @@
-// VFS mount management; file navigation stays with the page controller.
+// VFS references panel: ALIASES (the current model) + legacy mounts (read-only).
+// The mnt:// mount WRITE/management ops were removed (alias:// supersedes them);
+// this panel now manages ALIASES (vfs.alias_add / alias_remove / alias_list) and
+// shows any remaining legacy mounts READ-ONLY for back-compat.
 (function (global) {
   "use strict";
   function create(deps) {
     var api = deps.api, esc = deps.esc, browse = deps.browse;
-async function loadMounts(app, root) {
-  var r = await api("mounts", {});
-  var box = root.querySelector("#mounts-list");
-  var ms = (r.data && r.data.mounts) || [];
-  if (!ms.length) { box.innerHTML = '<div class="mounts-empty">No mounts. Mount a GitLab repo or your OneDrive (https://…-my.sharepoint.com/my) — tokens come from the Credential app.</div>'; return; }
-  box.innerHTML = ms.map(function (m) {
-    var badge = m.kind === "onedrive" || m.kind === "sharepoint" ? "☁"
-              : (m.kind === "gitlab" ? "🦊" : "🔗");
-    // scope-aware sub-label: host / group / repo / subpath (from the backend).
-    var sub = m.scope_label || (m.kind === "onedrive" ? "OneDrive"
-            : (m.host_mount ? (m.origin || "") + " (host)" : (m.project || "")));
-    var scopeTag = m.scope ? '<span class="scope-tag scope-' + esc(m.scope) + '">' + esc(m.scope) + '</span> ' : '';
-    return '<div class="mount-row" data-mnt="' + esc(m.mount) + '">' +
-      '<span class="badge">' + badge + '</span> <b>' + esc(m.mount) + '</b> ' +
-      '<span class="health-dot" data-hd="' + esc(m.mount) + '" title="checking…">○</span> ' +
-      scopeTag +
-      '<span class="mp">' + esc(sub) + (m.ref && m.ref !== "HEAD" ? "@" + esc(m.ref) : "") +
-        (m.read_only ? '' : ' <span class="rw-tag" title="writable">rw</span>') + '</span>' +
-      '<button class="mnt-info sec" data-info="' + esc(m.mount) + '" title="Mount info / edit">ⓘ</button>' +
-      '<button class="unmnt sec" data-unmnt="' + esc(m.mount) + '">unmount</button></div>';
-  }).join("");
-  box.querySelectorAll("[data-mnt]").forEach(function (el) {
-    el.addEventListener("click", function (e) {
-      if (e.target.getAttribute("data-unmnt") || e.target.getAttribute("data-info")) return;
-      browse(app, root, "vfs://mnt://" + el.getAttribute("data-mnt"));
-    });
-  });
-  box.querySelectorAll("[data-info]").forEach(function (b) {
-    b.addEventListener("click", function (e) {
-      e.stopPropagation();
-      showMountInfo(app, root, b.getAttribute("data-info"));
-    });
-  });
-  box.querySelectorAll("[data-unmnt]").forEach(function (b) {
-    b.addEventListener("click", async function (e) {
-      e.stopPropagation();
-      if (!window.confirm("Unmount '" + b.getAttribute("data-unmnt") + "'?")) return;
-      await api("unmount", { name: b.getAttribute("data-unmnt") });
-      loadMounts(app, root);
-    });
-  });
-  loadMountHealth(root);
-}
 
-// Mount INFO / EDIT panel (steering): show a mount's details (scope/origin/
-// base_path/ref/read_only/url) and allow a lightweight in-place edit — rename,
-// toggle writable, change a gitlab ref — via vfs.mount_edit (no unmount/refetch).
-async function showMountInfo(app, root, name) {
-  var r = await api("mount_info", { name: name });
-  var m = (r.data && r.data.mount) || null;
-  var box = root.querySelector("#mnt-wizard-box");   // reuse the panel slot
-  if (!box) return;
-  if (!m) { box.style.display = "block"; box.innerHTML = '<div class="wizard-loading">No info for ' + esc(name) + '.</div>'; return; }
-  box.style.display = "block";
-  box.innerHTML =
-    '<div class="wizard-title">Mount · ' + esc(m.mount) + '</div>' +
-    '<table class="mnt-info-tbl">' +
-      '<tr><td>kind</td><td>' + esc(m.kind) + '</td></tr>' +
-      '<tr><td>scope</td><td>' + esc(m.scope || "") + (m.scope_label ? ' — ' + esc(m.scope_label) : '') + '</td></tr>' +
-      '<tr><td>origin</td><td>' + esc(m.origin || "") + '</td></tr>' +
-      (m.base_path ? '<tr><td>path</td><td>' + esc(m.base_path) + '</td></tr>' : '') +
-      (m.project ? '<tr><td>project</td><td>' + esc(m.project) + '</td></tr>' : '') +
-      '<tr><td>url</td><td><code>' + esc(m.url) + '</code></td></tr>' +
-      '<tr><td>source</td><td class="mp">' + esc(m.source || "") + '</td></tr>' +
-    '</table>' +
-    '<div class="mnt-edit">' +
-      '<input id="mi-name" placeholder="rename…" value="' + esc(m.mount) + '">' +
-      (m.kind === "gitlab" ? '<input id="mi-ref" placeholder="ref (branch/tag)" value="' + esc(m.ref || "") + '">' : '') +
-      '<label class="mi-ro"><input type="checkbox" id="mi-ro"' + (m.read_only ? '' : ' checked') + '> writable</label>' +
-      '<button id="mi-save">Save</button>' +
-      '<button id="mi-close" class="sec">Close</button>' +
-    '</div><div id="mi-msg" class="wizard-cred"></div>';
-  box.querySelector("#mi-close").addEventListener("click", function () { box.style.display = "none"; });
-  box.querySelector("#mi-save").addEventListener("click", async function () {
-    var body = { name: name };
-    var nn = box.querySelector("#mi-name").value.trim();
-    if (nn && nn !== name) body.new_name = nn;
-    var roEl = box.querySelector("#mi-ro"); if (roEl) body.read_only = !roEl.checked;
-    var refEl = box.querySelector("#mi-ref"); if (refEl && refEl.value.trim() !== (m.ref || "")) body.ref = refEl.value.trim();
-    var er = await api("mount_edit", body);
-    var ed = er.data || {};
-    box.querySelector("#mi-msg").textContent = ed.ok
-      ? ("saved" + (ed.changed && ed.changed.length ? " (" + ed.changed.join(", ") + ")" : ""))
-      : ("edit failed: " + (ed.error || er.status));
-    if (ed.ok) { box.style.display = "none"; await loadMounts(app, root); }
-  });
-}
+  // --- ALIASES (the current reference model) --------------------------------
+  async function loadAliases(app, root) {
+    var box = root.querySelector("#mounts-list");
+    if (!box) return;
+    var ar = await api("alias_list", {});
+    var aliases = (ar.data && ar.data.aliases) || [];
+    var al = aliases.map(function (a) {
+      var k = a.kind || "";
+      var badge = (k === "vis") ? "🧭" : (k === "gitlab") ? "🦊" : (k === "gerrit") ? "⎇"
+                : (k === "github") ? "🐙" : (k === "ssh") ? "🖥" : (k === "provider") ? "📦" : "🔖";
+      return '<div class="mount-row" data-alias="' + esc(a.name) + '">' +
+        '<span class="badge">' + badge + '</span> <b>' + esc(a.name) + '</b> ' +
+        '<span class="mp"><code>' + esc(a.url) + '</code></span>' +
+        '<button class="unmnt sec" data-rmalias="' + esc(a.name) + '">remove</button></div>';
+    }).join("");
 
-// #20: probe each mount's liveness in the background and colour its dot —
-// green=root listed, red=failed (missing credential / unreachable). Non-blocking
-// so the mounts list paints instantly and the dots fill in.
-async function loadMountHealth(root) {
-  try {
-    var r = await api("mounts_health", {});
-    var h = (r.data && r.data.health) || {};
-    root.querySelectorAll("[data-hd]").forEach(function (el) {
-      var st = h[el.getAttribute("data-hd")];
-      if (!st) return;
-      if (st.ok) { el.textContent = "●"; el.className = "health-dot ok";
-        el.title = "live · " + (st.entries || 0) + " item(s)"; }
-      else { el.textContent = "●"; el.className = "health-dot bad";
-        el.title = st.detail || "unreachable"; }
+    // legacy mounts (read-only, back-compat): list but no unmount/edit.
+    var mr = await api("mounts", {});
+    var ms = (mr.data && mr.data.mounts) || [];
+    var ml = ms.map(function (m) {
+      var badge = m.kind === "onedrive" || m.kind === "sharepoint" ? "☁"
+                : (m.kind === "gitlab" ? "🦊" : "🔗");
+      var sub = m.scope_label || (m.host_mount ? (m.origin || "") + " (host)" : (m.project || ""));
+      return '<div class="mount-row legacy" data-mnt="' + esc(m.mount) + '" title="legacy mount (read-only)">' +
+        '<span class="badge">' + badge + '</span> <b>' + esc(m.mount) + '</b> ' +
+        '<span class="scope-tag">legacy</span> ' +
+        '<span class="mp">' + esc(sub) + (m.ref && m.ref !== "HEAD" ? "@" + esc(m.ref) : "") + '</span></div>';
+    }).join("");
+
+    var html = "";
+    html += '<div class="mounts-sec-title">Aliases</div>';
+    html += al || '<div class="mounts-empty">No aliases yet. Add one below — a named shorthand for ANY vfs url (a gitlab/gerrit repo in any namespace, a public repo, a deep gerrit path, a vis node, an ssh path).</div>';
+    if (ml) {
+      html += '<div class="mounts-sec-title">Legacy mounts (read-only)</div>' + ml +
+        '<div class="mounts-empty">Legacy mnt:// mounts are read-only. Re-create them as aliases (they list/read as before).</div>';
+    }
+    box.innerHTML = html;
+
+    box.querySelectorAll("[data-alias]").forEach(function (el) {
+      el.addEventListener("click", function (e) {
+        if (e.target.getAttribute("data-rmalias")) return;
+        browse(app, root, "vfs://alias://" + el.getAttribute("data-alias"));
+      });
     });
-  } catch (_) {}
-}
-
-async function addMount(app, root) {
-  var u = root.querySelector("#mnt-url").value.trim();
-  if (!u) { app.setStatus("Enter a URL to mount (or use the Wizard)."); return; }
-  var nm = (root.querySelector("#mnt-name") || {}).value;
-  nm = (nm || "").trim();
-  app.setStatus("Mounting " + u + " …");
-  var body = { url: u };
-  if (nm) body.name = nm;        // optional user-chosen mount name
-  var r = await api("mount", body);
-  var d = r.data || {};
-  if (!d.ok) { app.setStatus("Mount failed: " + (d.error || r.status)); return; }
-  root.querySelector("#mnt-url").value = "";
-  if (root.querySelector("#mnt-name")) root.querySelector("#mnt-name").value = "";
-  app.setStatus("Mounted at " + d.url);
-  await loadMounts(app, root);
-  browse(app, root, d.url);
-}
-
-// #18: "mount a web service" wizard — a picker of known transports (from
-// vfs.transports) that pre-fills the URL input with each transport's example and
-// shows the credential it needs + a one-click link to the credential page.
-async function toggleWizard(app, root) {
-  var box = root.querySelector("#mnt-wizard-box");
-  if (box.style.display !== "none") { box.style.display = "none"; return; }
-  box.style.display = "block";
-  box.innerHTML = '<div class="wizard-loading">Loading transports …</div>';
-  var r = await api("transports", {});
-  var ts = (r.data && r.data.transports) || [];
-  if (!ts.length) { box.innerHTML = '<div class="wizard-loading">No transports.</div>'; return; }
-  box.innerHTML =
-    '<div class="wizard-title">Mount a web service — pick a type:</div>' +
-    '<div class="wizard-grid">' + ts.map(function (t) {
-      return '<button class="wizard-pick" data-tr="' + esc(t.transport) + '" ' +
-        'data-ex="' + esc(t.example) + '" data-cred="' + esc(t.credential || "") + '">' +
-        '<b>' + esc(t.label) + '</b><span>' + esc(t.hint || "") + '</span></button>';
-    }).join("") + '</div>' +
-    '<div id="wizard-detail" class="wizard-detail"></div>';
-  box.querySelectorAll(".wizard-pick").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var ex = b.getAttribute("data-ex"), cred = b.getAttribute("data-cred");
-      root.querySelector("#mnt-url").value = ex;
-      var det = root.querySelector("#wizard-detail");
-      det.innerHTML = '<div>Example filled into the URL box above — edit it and click ' +
-        '<b>Mount repo</b>.</div>' +
-        (cred ? '<div class="wizard-cred">Needs a <b>' + esc(cred) + '</b> credential. ' +
-          '<a href="/apps/platform/credential/" target="_blank">Open the Credential app →</a></div>'
-              : '<div class="wizard-cred">No credential needed.</div>');
+    box.querySelectorAll("[data-mnt]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        browse(app, root, "vfs://mnt://" + el.getAttribute("data-mnt"));
+      });
     });
-  });
-}
+    box.querySelectorAll("[data-rmalias]").forEach(function (b) {
+      b.addEventListener("click", async function (e) {
+        e.stopPropagation();
+        var nm = b.getAttribute("data-rmalias");
+        if (!window.confirm("Remove alias '" + nm + "'?")) return;
+        await api("alias_remove", { name: nm, confirm: true });
+        loadAliases(app, root);
+      });
+    });
+  }
 
-    return { loadMounts: loadMounts, addMount: addMount, toggleWizard: toggleWizard };
+  // Back-compat name used by the page controller.
+  async function loadMounts(app, root) { return loadAliases(app, root); }
+
+  // --- ADD an alias (replaces the old mount form) ---------------------------
+  async function addMount(app, root) {
+    var u = (root.querySelector("#mnt-url") || {}).value;
+    u = (u || "").trim();
+    if (!u) { app.setStatus("Enter a target vfs url (or a bare https/ssh url) to alias."); return; }
+    var nm = ((root.querySelector("#mnt-name") || {}).value || "").trim();
+    if (!nm) {
+      // derive a default name from the url's last path segment
+      nm = u.replace(/\/+$/, "").split("/").pop() || "ref";
+    }
+    app.setStatus("Adding alias " + nm + " → " + u + " …");
+    var r = await api("alias_add", { name: nm, url: u, confirm: true });
+    var d = r.data || {};
+    if (!d.ok) { app.setStatus("Alias add failed: " + (d.error || r.status)); return; }
+    if (root.querySelector("#mnt-url")) root.querySelector("#mnt-url").value = "";
+    if (root.querySelector("#mnt-name")) root.querySelector("#mnt-name").value = "";
+    app.setStatus("Alias added: vfs://alias://" + nm);
+    await loadAliases(app, root);
+    browse(app, root, "vfs://alias://" + nm);
+  }
+
+  // "What can I alias?" helper — examples for the common targets, incl. the ones
+  // the tree can't surface (public / other-namespace repos, deep gerrit paths).
+  async function toggleWizard(app, root) {
+    var box = root.querySelector("#mnt-wizard-box");
+    if (!box) return;
+    if (box.style.display !== "none") { box.style.display = "none"; return; }
+    box.style.display = "block";
+    var examples = [
+      ["GitLab repo (any namespace / public)", "vfs://https://gitlab.rnd.gic.ericsson.se/other-group/repo"],
+      ["Gerrit project (not root-expandable)", "vfs://https://gerrit-review.gic.ericsson.se/my/project"],
+      ["Public GitHub repo", "vfs://https://github.com/pallets/flask"],
+      ["VIS node", "vis://mom"],
+      ["SSH path", "vfs://ssh://host/home/you"],
+      ["Provider path", "vfs://app://cpi/"]
+    ];
+    box.innerHTML =
+      '<div class="wizard-title">Alias a location — pick an example to fill the URL box:</div>' +
+      '<div class="wizard-grid">' + examples.map(function (e) {
+        return '<button class="wizard-pick" data-ex="' + esc(e[1]) + '"><b>' + esc(e[0]) +
+          '</b><span>' + esc(e[1]) + '</span></button>';
+      }).join("") + '</div>' +
+      '<div class="wizard-cred">An alias (vfs://alias://&lt;name&gt;) is a named shorthand for ANY vfs url — ' +
+      'including repos NOT in your namespace and paths you can\'t reach by browsing the tree. ' +
+      'A bare https:// / ssh:// url is accepted and normalized.</div>';
+    box.querySelectorAll(".wizard-pick").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (root.querySelector("#mnt-url")) root.querySelector("#mnt-url").value = b.getAttribute("data-ex");
+      });
+    });
+  }
+
+    return { loadMounts: loadMounts, loadAliases: loadAliases, addMount: addMount, toggleWizard: toggleWizard };
   }
   global.VFSMounts = { create: create };
 })(window);
@@ -168,7 +130,10 @@ async function toggleWizard(app, root) {
 ;
 // VFS left-sidebar TREE — a VIS-style browsable tree over every vfs reach:
 //   • This PC            local disk root(s)         (vfs://file:///C:/ , /)
-//   • Mounts             each mounted reference      (vfs://mnt://<name>)
+//   • VFS                reach backends grouped by PLUGIN (ssh/gitlab/ftp/…),
+//                        each listing its mount aliases (vfs://mnt://<name>) +
+//                        an "＋ add" leaf. Aligned with the workspace shell's
+//                        Endpoint tree (a mount = an endpoint under its transport).
 //   • Providers          each app-backed provider    (vfs://app://<name>)
 // Lazy children come from the SAME vfs.list op the content browser uses, so the
 // tree works uniformly across fs / ssh / mount / app. Selecting a dir browses it
@@ -194,8 +159,18 @@ async function toggleWizard(app, root) {
       return (navigator.platform || "").toLowerCase().indexOf("win") >= 0
         ? "vfs://file:///C:/" : "vfs://file:///";
     }
-    function nodeFor(e) {
-      return { name: e.name, path: e.url, icon: e.kind === "dir" ? "📂" : "📄",
+    function _joinUrl(parent, name) {
+      var p = String(parent || "").replace(/\/+$/, "");
+      return p + "/" + String(name || "").replace(/^\/+/, "");
+    }
+    function nodeFor(e, parentUrl) {
+      // Build the child url: a provider/alias entry carries its own `url` (e.g.
+      // gdrive's id-based path); a plain fs/ssh/mount entry does NOT, so derive
+      // it from the PARENT url + the entry name. Without this, every local
+      // sub-folder got path=undefined → expanding it listed url=undefined →
+      // the file/vfs "url required" error (the reported bug on This PC).
+      var childUrl = e.url || _joinUrl(parentUrl, e.name);
+      return { name: e.title || e.name, path: childUrl, icon: e.kind === "dir" ? "📂" : "📄",
                hasChildren: e.kind === "dir", data: { entry: e, kind: e.kind } };
     }
     function listKids(url) {
@@ -215,7 +190,7 @@ async function toggleWizard(app, root) {
           return [{ name: "⚠ " + msg, path: url + "#err", icon: "",
                     hasChildren: false, data: { err: true } }];
         }
-        var kids = (d.entries || []).map(nodeFor);
+        var kids = (d.entries || []).map(function (e) { return nodeFor(e, url); });
         // an empty, login-free browse with a guidance hint → show it as a
         // clickable node that opens the owning app's page (e.g. CPI Store).
         if (!kids.length && d.hint) {
@@ -236,28 +211,70 @@ async function toggleWizard(app, root) {
       // This PC — the local disk root (expands to its real listing)
       roots.push({ name: "This PC", path: "grp:thispc", icon: "🖥", hasChildren: true,
                    data: { group: "thispc" } });
-      roots.push({ name: "Mounts", path: "grp:mounts", icon: "🔗", hasChildren: true,
-                   data: { group: "mounts" } });
+      roots.push({ name: "Transports", path: "grp:transports", icon: "🗄", hasChildren: true,
+                   data: { group: "transports" } });
+      roots.push({ name: "Aliases", path: "grp:aliases", icon: "🔖", hasChildren: true,
+                   data: { group: "aliases" } });
       roots.push({ name: "Providers", path: "grp:providers", icon: "📦", hasChildren: true,
                    data: { group: "providers" } });
       return roots;
     }
 
+    // The reach transports a user can add an endpoint for (static — the
+    // vfs.transports catalog op was removed with the mnt:// deprecation). Each is
+    // a category under the Transports group; expanding it lists this kind's
+    // aliases + legacy mounts + (for ssh) the hosts known to platform/auth_ssh,
+    // plus an "+ add endpoint" leaf. Provider-app kinds (gdrive/onedrive) live
+    // under Providers, not here.
+    var KNOWN_TRANSPORTS = {
+      ssh: { example: "ssh://host/home/you", hint: "A remote host over SSH/SFTP.", credential: "" },
+      gitlab: { example: "https://gitlab.internal.ericsson.com/group/repo", hint: "A GitLab repo/group/host.", credential: "gitlab" },
+      gerrit: { example: "https://gerrit-review.gic.ericsson.se/project", hint: "A Gerrit project.", credential: "gerrit" },
+      github: { example: "https://github.com/owner/repo", hint: "A GitHub repo.", credential: "github" },
+      ftp: { example: "ftp://ftp.example.com/pub", hint: "An FTP(S) host or sub-dir.", credential: "" },
+      httpindex: { example: "httpidx://https://ftp.gnu.org/gnu/bash/", hint: "An HTTP directory index.", credential: "" },
+      webdav: { example: "webdav://https://host/remote.php/dav/files/user/", hint: "A WebDAV/Nextcloud collection.", credential: "" },
+      mediawiki: { example: "mediawiki://wiki.example.com/<title-prefix>", hint: "A MediaWiki page tree.", credential: "wiki" },
+      s3: { example: "s3://bucket/prefix", hint: "An S3 / S3-compatible bucket.", credential: "aws" },
+      confluence: { example: "https://eteamspace.internal.ericsson.com/pages/viewpage.action?spaceKey=KEY&title=Page", hint: "A Confluence space/page.", credential: "confluence" }
+    };
+    var _TRANSPORT_ORDER = ["ssh", "gitlab", "gerrit", "github", "ftp", "s3", "webdav", "httpindex", "mediawiki", "confluence"];
+
+    var TKIND_ICON = { confluence: "🗎", onedrive: "☁", sharepoint: "☁", teams: "☁",
+                       gdrive: "📁", gitlab: "🦊", gerrit: "⎇", ssh: "🖥",
+                       ftp: "📡", httpindex: "🌐", webdav: "📄", mediawiki: "📖",
+                       github: "🐙", s3: "🪣", path: "🔗" };
+    function tIcon(k) { return TKIND_ICON[k] || "🔗"; }
+    var TRANSPORT_CAT = {};   // kind -> catalog row {label,example,hint,credential}
+
     function groupChildren(which) {
       if (which === "thispc") {
         return listKids(winLocal());   // real disk listing at the drive root
       }
-      if (which === "mounts") {
-        return api("mounts", {}).then(function (r) {
-          var ms = ((r && r.data) || r || {}).mounts || [];
-          if (!ms.length) return [{ name: "(no mounts)", path: "grp:mounts#none", icon: "",
-                                    hasChildren: false, data: { info: true } }];
-          return ms.map(function (m) {
-            var badge = (m.kind === "onedrive" || m.kind === "sharepoint") ? "☁"
-                      : (m.kind === "gitlab" ? "🦊" : "🔗");
-            return { name: m.mount, path: "vfs://mnt://" + m.mount, icon: badge,
-                     hasChildren: true, data: { kind: "dir", mount: true } };
+      if (which === "aliases") {
+        // Aliases (the current reference model) + any legacy mounts (read-only).
+        return Promise.all([
+          api("alias_list", {}).then(function (r) { return ((r && r.data) || r || {}).aliases || []; }, function () { return []; }),
+          api("mounts", {}).then(function (r) { return ((r && r.data) || r || {}).mounts || []; }, function () { return []; })
+        ]).then(function (res) {
+          var aliases = res[0], mounts = res[1];
+          var out = aliases.map(function (a) {
+            var k = a.kind || "";
+            var ic = (k === "vis") ? "🧭" : (k === "gitlab") ? "🦊" : (k === "gerrit") ? "⎇"
+                   : (k === "github") ? "🐙" : (k === "ssh") ? "🖥" : (k === "provider") ? "📦" : "🔖";
+            return { name: a.name, path: "vfs://alias://" + a.name, icon: ic,
+                     hasChildren: true, data: { kind: "dir", alias: true } };
           });
+          // legacy mnt:// mounts (read-only back-compat) listed below the aliases.
+          mounts.forEach(function (m) {
+            if (!m || !m.mount) return;
+            out.push({ name: m.mount + "  (legacy)", path: "vfs://mnt://" + m.mount,
+                       icon: tIcon(m.kind), hasChildren: true,
+                       data: { kind: "dir", mount: true, legacy: true } });
+          });
+          if (!out.length) out.push({ name: "(no aliases — add one in the panel)", path: "grp:aliases#none",
+                                      icon: "", hasChildren: false, data: { info: true } });
+          return out;
         }).catch(function () { return []; });
       }
       if (which === "providers") {
@@ -273,8 +290,108 @@ async function toggleWizard(app, root) {
           });
         }).catch(function () { return []; });
       }
+      if (which === "transports") {
+        // The reach-transport CATEGORIES (static known kinds). Each expands to
+        // its endpoints (aliases/mounts/ssh-hosts) + an add leaf.
+        return Promise.resolve(_TRANSPORT_ORDER.map(function (k) {
+          return { name: k, path: "trcat:" + k, icon: tIcon(k), hasChildren: true,
+                   data: { transportCat: k } };
+        }));
+      }
       return Promise.resolve([]);
     }
+
+    // A transport CATEGORY → its endpoints of that kind: aliases, legacy mounts,
+    // and (for ssh) the hosts KNOWN TO platform/auth_ssh (host_list), plus an
+    // "+ add endpoint" leaf that opens the vfs page's add-reference (alias) form.
+    function transportCatChildren(kind) {
+      var fetches = [
+        api("alias_list", {}).then(function (r) { return ((r && r.data) || r || {}).aliases || []; }, function () { return []; }),
+        api("mounts", {}).then(function (r) { return ((r && r.data) || r || {}).mounts || []; }, function () { return []; })
+      ];
+      // ssh: also pull the auth_ssh saved-host registry (a bare cross-app fetch).
+      if (kind === "ssh") {
+        fetches.push(fetch("/v1/apps/platform/auth_ssh/host_list", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function (r) { return r.ok ? r.json() : { hosts: [] }; })
+          .then(function (j) { return (j && j.hosts) || []; })
+          .catch(function () { return []; }));
+      } else {
+        fetches.push(Promise.resolve([]));   // keep res[2] slot aligned
+      }
+      // gitlab/gerrit/github: ALSO list the HOST(s) the user can access (from the
+      // stored credentials' url), so the category browses AVAILABLE PROJECTS —
+      // not just the aliased paths. Each host expands via the ad-hoc https
+      // transport (vfs://https://<host> → gitlab_fetch.list_host → the user's
+      // groups + personal namespace + projects). Credentials come from
+      // platform/credential.list (read_only, http-callable, redacted — never a
+      // secret); a gitlab cred is named 'gitlab'/'gitlab-<x>' or carries a url.
+      var _wantsHosts = (kind === "gitlab" || kind === "gerrit" || kind === "github");
+      if (_wantsHosts) {
+        fetches.push(fetch("/v1/apps/platform/credential/list", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })
+          .then(function (r) { return r.ok ? r.json() : { credentials: [] }; })
+          .then(function (j) { return (j && j.credentials) || []; })
+          .catch(function () { return []; }));
+      } else {
+        fetches.push(Promise.resolve([]));
+      }
+      return Promise.all(fetches).then(function (res) {
+        var aliases = res[0] || [], mounts = res[1] || [], sshHosts = res[2] || [], creds = res[3] || [];
+        var out = [];
+        var seen = {};
+        // Host nodes FIRST (the primary way to browse projects), for
+        // gitlab/gerrit/github — derived from the matching stored credentials'
+        // url. De-duped by host; browsed via vfs://https://<host>.
+        if (_wantsHosts) {
+          var _hostSeen = {};
+          creds.forEach(function (c) {
+            var nm = String(c.name || "").toLowerCase();
+            var isKind = (nm === kind || nm.indexOf(kind + "-") === 0 ||
+                          String(c.url || "").toLowerCase().indexOf(kind) >= 0 ||
+                          (c.domains || []).some(function (d) { return String(d).toLowerCase().indexOf(kind) >= 0; }));
+            if (!isKind) return;
+            // host candidates: the cred url's host + any domains aliases.
+            var hosts = [];
+            try { var u = String(c.url || ""); if (u) hosts.push(u.replace(/^https?:\/\//, "").replace(/\/.*$/, "")); } catch (e) {}
+            (c.domains || []).forEach(function (d) { var h = String(d || "").replace(/^https?:\/\//, "").replace(/\/.*$/, ""); if (h) hosts.push(h); });
+            hosts.forEach(function (h) {
+              if (!h || _hostSeen[h]) return; _hostSeen[h] = 1; seen[h] = 1;
+              out.push({ name: h, path: "vfs://https://" + h, icon: tIcon(kind), hasChildren: true,
+                         data: { kind: "dir", host: true, authed: !!c.has_token },
+                         title: kind + " server " + h + (c.has_token ? " (authenticated)" : " (no token)") });
+            });
+          });
+        }
+        aliases.filter(function (a) { return String(a.kind || "").toLowerCase() === kind; })
+          .forEach(function (a) {
+            if (seen[a.name]) return; seen[a.name] = 1;
+            out.push({ name: a.name, path: "vfs://alias://" + a.name, icon: tIcon(kind),
+                       hasChildren: true, data: { kind: "dir", alias: true } });
+          });
+        mounts.filter(function (m) { return m && m.mount && String(m.kind || "").toLowerCase() === kind; })
+          .forEach(function (m) {
+            if (seen[m.mount]) return; seen[m.mount] = 1;
+            out.push({ name: m.mount + "  (legacy)", path: "vfs://mnt://" + m.mount, icon: tIcon(kind),
+                       hasChildren: true, data: { kind: "dir", mount: true, legacy: true } });
+          });
+        sshHosts.forEach(function (h) {
+          var host = (h.host || h.alias || "").trim();
+          if (!host || seen[host]) return; seen[host] = 1;
+          out.push({ name: host + (h.alias && h.alias !== host ? "  (" + h.alias + ")" : ""),
+                     path: "vfs://ssh://" + host, icon: "🖥", hasChildren: true,
+                     data: { kind: "dir", sshHost: true } });
+        });
+        var cat = KNOWN_TRANSPORTS[kind] || {};
+        out.push({ name: "＋ add " + kind + " endpoint…", path: "trcat:" + kind + "#add", icon: "➕",
+                   hasChildren: false,
+                   data: { addTransport: kind, example: cat.example || "", hint: cat.hint || "", credential: cat.credential || "" } });
+        return out;
+      }).catch(function () { return []; });
+    }
+
+    // (Removed, TODO #3) the transport-CATEGORY children + "＋ add endpoint" leaf
+    // — the mnt:// mount write path is gone; aliases (vfs.alias_add) replace it.
 
     function render(host) {
       host.classList.add("vfs-treewrap");
@@ -293,13 +410,28 @@ async function toggleWizard(app, root) {
           storageKey: "file-vfs:tree",
           onExpand: function (node, cb) {
             var d = node.data || {};
-            if (d.err || d.info) return cb([]);
+            if (d.err || d.info || d.addTransport) return cb([]);
             if (d.group) return groupChildren(d.group).then(cb, function () { cb([]); });
+            if (d.transportCat) return transportCatChildren(d.transportCat).then(cb, function () { cb([]); });
             listKids(node.path).then(cb, function () { cb([]); });
           },
           onSelect: function (node) {
             var d = node.data || {};
-            if (d.err || d.info || d.group) return;   // groups are expand-only
+            if (d.err || d.info || d.group || d.transportCat) return;   // groups/categories expand-only
+            // "+ add <kind> endpoint" leaf → open the References panel's add form
+            // (prefill the url box with this kind's example). The vfs page adds a
+            // reference as an ALIAS (vfs.alias_add); for ssh the example is an
+            // ssh:// url the user edits to their host.
+            if (d.addTransport) {
+              try {
+                var root = document.querySelector(".vfs-content") || document;
+                var urlIn = root.querySelector && root.querySelector("#mnt-url");
+                if (urlIn && d.example) { urlIn.value = d.example; urlIn.focus(); }
+                var wiz = root.querySelector && root.querySelector("#mnt-wizard");
+                if (wiz) wiz.click();   // open the "Examples" helper
+              } catch (_) {}
+              return;
+            }
             if (d.signin || d.hint) {
               // open the owning app's page (or an explicit 'open' url) so the
               // user can sign in / load the catalog / fetch there, then re-expand.
@@ -443,7 +575,7 @@ async function browse(app, root, url) {
   box.innerHTML = '<table class="fs-table"><tbody>' + up + entries.map(function (e) {
     var icon = e.kind === "dir" ? "📁" : "📄";
     var attr = e.kind === "dir" ? ' data-dir="' + esc(e.name) + '"' : ' data-file="' + esc(e.name) + '"';
-    return '<tr' + attr + '><td><span class="fs-icon">' + icon + '</span> ' + esc(e.name) +
+    return '<tr' + attr + '><td><span class="fs-icon">' + icon + '</span> ' + esc(e.title || e.name) +
       (e.link ? ' <span class="reach">link</span>' : '') + '</td>' +
       '<td class="sz">' + (e.kind === "dir" ? "" : fmtSize(e.size)) + '</td>' +
       '<td class="mt">' + esc(e.modified || "") + '</td></tr>';
@@ -518,12 +650,12 @@ function mountContent(el) {
       '<code>vfs://mnt://&lt;name&gt;/...</code> (a mounted GitLab host/repo or OneDrive). ' +
       'Click a folder to descend, a file to preview.</div>' +
     '<div class="mounts-box">' +
-      '<div class="mounts-head"><b>Mounts</b>' +
+      '<div class="mounts-head"><b>References</b>' +
         '<span class="spacer"></span>' +
-        '<input id="mnt-url" placeholder="https://gitlab.rnd.gic.ericsson.se/group/repo  or  https://ericsson-my.sharepoint.com/my">' +
-        '<input id="mnt-name" class="mnt-name" placeholder="name (optional)" title="Mount name — a short alias shown in the tree (e.g. TC_WoW). Auto-derived if left blank.">' +
-        '<button id="mnt-wizard" class="sec">Wizard</button>' +
-        '<button id="mnt-add" class="sec">Mount</button>' +
+        '<input id="mnt-url" placeholder="target vfs url — e.g. vfs://https://gitlab.rnd.gic.ericsson.se/group/repo, vis://mom, vfs://ssh://host/path">' +
+        '<input id="mnt-name" class="mnt-name" placeholder="alias name (optional)" title="Alias name — a short handle (e.g. ai-pylon). Auto-derived from the url if left blank.">' +
+        '<button id="mnt-wizard" class="sec">Examples</button>' +
+        '<button id="mnt-add" class="sec">Add alias</button>' +
       '</div>' +
       '<div id="mnt-wizard-box" class="wizard-box" style="display:none"></div>' +
       '<div id="mounts-list"></div>' +
@@ -635,4 +767,5 @@ function renderAssistant(app, el) {
     });
   }).catch(function () { el.textContent = "Assistant failed to load."; });
 }
+
 
