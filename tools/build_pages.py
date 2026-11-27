@@ -359,11 +359,21 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     const DEFAULT_VM = {json.dumps(api_origin)};
     const DEFAULT_LOCAL = 'http://127.0.0.1:8910';
     const SERVERS_KEY = 'pylon.servers';
+    const TOKENS_KEY = 'pylon.server_tokens';
     const LEGACY_SERVER_KEY = 'pylon.server_origin';
     const COLLAPSED_KEY = 'pylon.tree.collapsed';
     const LAST_SEL_KEY = 'pylon.last_selection';
 
     let servers = [];
+    function getTokens() {{
+      try {{ return JSON.parse(localStorage.getItem(TOKENS_KEY) || '{{}}') || {{}}; }} catch (_) {{ return {{}}; }}
+    }}
+    function setToken(origin, token) {{
+      const map = getTokens();
+      if (token && token.trim()) map[origin] = token.trim();
+      else delete map[origin];
+      try {{ localStorage.setItem(TOKENS_KEY, JSON.stringify(map)); }} catch (_) {{}}
+    }}
     // origin -> {{ origin, name, status: 'loading'|'ok'|'warn', detail, catalogUrl, apps: [], enabledSet: Set|null }}
     const serverState = new Map();
     let activeKey = ''; // origin + '::' + app.id
@@ -514,6 +524,24 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
         srvRow.children[2].textContent = st.name || origin;
         srvRow.children[2].title = origin;
         srvRow.children[3].textContent = String(items.length);
+
+        const keyBtn = document.createElement('button');
+        keyBtn.type = 'button';
+        keyBtn.className = 'icon-btn';
+        const hasTok = Boolean(getTokens()[origin]);
+        keyBtn.title = hasTok ? 'Auth token set (click to edit/clear)' : 'Set Bearer auth token for this server';
+        keyBtn.textContent = hasTok ? '🔑' : '🔓';
+        keyBtn.addEventListener('click', e => {{
+          e.stopPropagation();
+          const cur = getTokens()[origin] || '';
+          const next = prompt('Bearer token for ' + origin + ' (leave empty to clear):', cur);
+          if (next === null) return;
+          setToken(origin, next);
+          renderTree();
+          const frame = document.getElementById('app-frame');
+          if (frame.src && activeKey.startsWith(origin + '::')) frame.src = frame.src;
+        }});
+        srvRow.appendChild(keyBtn);
 
         const refreshBtn = document.createElement('button');
         refreshBtn.type = 'button';
@@ -886,15 +914,30 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
             "  if(typeof window.fetch==='function'&&resolved&&location.origin&&resolved!==location.origin){\n"
             "    var _origFetch=window.fetch.bind(window);\n"
             "    var _isStatic=function(p){return /^\\/(?:appui\\/|pages\\/|catalogs\\/|daemons\\/|dependencies\\/|pylon-config\\.js|release\\.json|$)/.test(p);};\n"
+            "    var _getTok=function(){try{var m=JSON.parse(localStorage.getItem('pylon.server_tokens')||'{}');return (m&&m[resolved])||'';}catch(_){return '';}};\n"
+            "    var _withAuth=function(init){\n"
+            "      var opts=Object.assign({},init||{});\n"
+            "      if(!opts.credentials)opts.credentials='include';\n"
+            "      var tok=_getTok();\n"
+            "      if(tok){\n"
+            "        var h=new Headers(opts.headers||{});\n"
+            "        if(!h.has('Authorization'))h.set('Authorization','Bearer '+tok);\n"
+            "        opts.headers=h;\n"
+            "      }\n"
+            "      return opts;\n"
+            "    };\n"
             "    window.fetch=function(input,init){\n"
             "      try{\n"
             "        if(typeof input==='string'&&input.startsWith('/')&&!input.startsWith('//')&&!_isStatic(input)){\n"
-            "          return _origFetch(resolved+input,init);\n"
+            "          return _origFetch(resolved+input,_withAuth(init));\n"
+            "        }\n"
+            "        if(typeof input==='string'&&input.startsWith(resolved+'/')){\n"
+            "          return _origFetch(input,_withAuth(init));\n"
             "        }\n"
             "        if(input instanceof Request){\n"
             "          var ru=new URL(input.url);\n"
             "          if(ru.origin===location.origin&&!_isStatic(ru.pathname)){\n"
-            "            return _origFetch(new Request(resolved+ru.pathname+ru.search,input),init);\n"
+            "            return _origFetch(new Request(resolved+ru.pathname+ru.search,input),_withAuth(init));\n"
             "          }\n"
             "        }\n"
             "      }catch(_){}\n"
