@@ -116,7 +116,7 @@
       pb.textContent = a.pack;
       tr.children[2].appendChild(pb);
       tr.children[3].textContent = a.hosting;
-      tr.children[4].textContent = a.has_page ? 'yes' : 'api-only';
+      tr.children[4].textContent = a.kind || (a.has_page ? 'full' : 'api-only');
       tr.addEventListener('click', () => openManifestDialog(a));
       tbody.appendChild(tr);
     }
@@ -160,6 +160,7 @@
       try {
         const r = await callOp('app_create', {
           pack: document.getElementById('new-pack').value,
+          kind: document.getElementById('new-kind').value,
           group: document.getElementById('new-group').value,
           name: document.getElementById('new-name').value,
           title: document.getElementById('new-title').value,

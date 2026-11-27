@@ -41,6 +41,11 @@
       <h2>Create New App in Pack</h2>
       <form id="app-create-form" class="am-grid-form">
         <select id="new-pack" required></select>
+        <select id="new-kind" required>
+          <option value="full">Full (api + page)</option>
+          <option value="page-only">Page-only</option>
+          <option value="api-only">API-only</option>
+        </select>
         <input id="new-group" type="text" value="personal" placeholder="group (e.g. personal)" required>
         <input id="new-name" type="text" placeholder="app_name (e.g. my_notes)" required>
         <input id="new-title" type="text" placeholder="Title (optional)">
@@ -56,7 +61,7 @@
       </div>
       <table class="am-table">
         <thead>
-          <tr><th>App ID</th><th>Title</th><th>Pack</th><th>Hosting</th><th>Page</th></tr>
+          <tr><th>App ID</th><th>Title</th><th>Pack</th><th>Hosting</th><th>Kind</th></tr>
         </thead>
         <tbody id="apps-body"></tbody>
       </table>
