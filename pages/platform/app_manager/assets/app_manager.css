@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body { margin: 0; padding: 20px; background: var(--bg-primary, #0f1117); color: var(--text-primary, #e6e9f2); }
+@media (prefers-color-scheme: light) {
+  body { background: #f6f7fb; color: #181c26; }
+}
+.am-wrap { max-width: 1080px; margin: 0 auto; }
+.am-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.am-head h1 { margin: 0; font-size: 1.4rem; }
+.am-muted { font-size: 0.86rem; opacity: 0.72; }
+.am-actions, .am-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.am-card { border: 1px solid #8884; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; background: #8881; }
+.am-card h2 { margin: 0 0 10px; font-size: 1.02rem; }
+.am-grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+input, select {
+  padding: 7px 10px; border-radius: 6px; border: 1px solid #8886;
+  background: transparent; color: inherit; font-size: 0.88rem; min-width: 0; flex: 1;
+}
+.am-btn {
+  padding: 7px 12px; border-radius: 6px; border: 1px solid #3b82f6;
+  background: #3b82f6; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.84rem; white-space: nowrap;
+}
+.am-btn.sec { background: transparent; color: inherit; border-color: #8886; font-weight: 500; }
+.am-btn.sm { padding: 4px 8px; font-size: 0.78rem; }
+.am-notice { padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 0.88rem; border: 1px solid #3b82f6; background: #3b82f622; }
+.am-notice.err { border-color: #ef4444; background: #ef444422; }
+.am-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.86rem; }
+.am-table th, .am-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #8883; }
+.am-badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 0.75rem; border: 1px solid #8885; }
+.am-badge.ok { border-color: #22c55e; color: #22c55e; }
+.am-badge.pack { border-color: #3b82f6; color: #3b82f6; }

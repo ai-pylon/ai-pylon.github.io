@@ -27,6 +27,7 @@
     "personal/web_archive",
     "personal/youtube",
     "platform/accounts",
+    "platform/app_manager",
     "platform/appui_guide",
     "platform/auth_ftp",
     "platform/auth_http",

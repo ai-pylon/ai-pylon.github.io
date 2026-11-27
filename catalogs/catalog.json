@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "count": 68,
-  "page_count": 63,
+  "count": 69,
+  "page_count": 64,
   "apps": [
     {
       "id": "file/disk",
@@ -580,6 +580,28 @@
       "needs_apps": [
         "platform/page_automation"
       ]
+    },
+    {
+      "id": "platform/app_manager",
+      "group": "platform",
+      "name": "app_manager",
+      "title": "App Manager",
+      "category": "platform/operations",
+      "description": "Manage per-server app lists, external pylon-apps-* packs (e.g. Google Drive), and scaffold new apps.",
+      "tags": [
+        "platform",
+        "apps",
+        "packs",
+        "catalog"
+      ],
+      "workspace": {
+        "role": "infra"
+      },
+      "api": "/v1/apps/platform/app_manager",
+      "has_api": true,
+      "page": "/pages/platform/app_manager/",
+      "has_page": true,
+      "needs_apps": []
     },
     {
       "id": "platform/app_scenarios",

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>App Manager — AI Pylon</title>
+  <script src="/appui/loader.js"></script>
+  <script>AppUIAssets.loadCss();</script>
+  <link rel="stylesheet" href="assets/app_manager.css">
+</head>
+<body data-auto-init="false" data-page-id="platform-app_manager" data-page-title="App Manager">
+  <div class="am-wrap">
+    <header class="am-head">
+      <div>
+        <h1>App Manager</h1>
+        <div id="am-sub" class="am-muted">Loading server packs and app list...</div>
+      </div>
+      <div class="am-actions">
+        <button id="btn-refresh" class="am-btn sec" type="button">Refresh</button>
+        <button id="btn-reassemble" class="am-btn" type="button">Reassemble &amp; Reload</button>
+      </div>
+    </header>
+
+    <div id="am-notice" class="am-notice" style="display:none"></div>
+
+    <section class="am-card">
+      <h2>App Packs (<code>pylon-apps-*</code>)</h2>
+      <form id="pack-add-form" class="am-row">
+        <input id="pack-path" type="text" placeholder="Pack folder path (e.g. ../pylon-apps-work or G:/My Drive/pylon-apps-personal)" required>
+        <button type="submit" class="am-btn">+ Add Pack</button>
+      </form>
+      <table class="am-table">
+        <thead>
+          <tr><th>Pack</th><th>Path</th><th>Apps</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="packs-body"></tbody>
+      </table>
+    </section>
+
+    <section class="am-card">
+      <h2>Create New App in Pack</h2>
+      <form id="app-create-form" class="am-grid-form">
+        <select id="new-pack" required></select>
+        <input id="new-group" type="text" value="personal" placeholder="group (e.g. personal)" required>
+        <input id="new-name" type="text" placeholder="app_name (e.g. my_notes)" required>
+        <input id="new-title" type="text" placeholder="Title (optional)">
+        <input id="new-desc" type="text" placeholder="Description (optional)">
+        <button type="submit" class="am-btn">+ Create App</button>
+      </form>
+    </section>
+
+    <section class="am-card">
+      <div class="am-row" style="justify-content:space-between;margin-bottom:10px">
+        <h2 style="margin:0">Server Apps (<span id="apps-count">0</span>)</h2>
+        <input id="app-filter" type="search" placeholder="Filter by id, title, or pack..." style="max-width:280px">
+      </div>
+      <table class="am-table">
+        <thead>
+          <tr><th>App ID</th><th>Title</th><th>Pack</th><th>Hosting</th><th>Page</th></tr>
+        </thead>
+        <tbody id="apps-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    window.AppUIReady = AppUIAssets.load('foundation');
+  </script>
+  <script src="assets/app_manager.js"></script>
+</body>
+</html>
