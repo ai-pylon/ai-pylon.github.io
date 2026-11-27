@@ -12,6 +12,16 @@ var AppUIApi = window.AppUIApi || (function () {
 
   function resolvePath(path) {
     if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return path;
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.PYLON_API_ORIGIN === 'string' &&
+      window.PYLON_API_ORIGIN &&
+      window.location &&
+      window.PYLON_API_ORIGIN.replace(/\/+$/, '') !== window.location.origin &&
+      /^\/(?:v1\/|_pylon\/|health(?:$|\?)|ports(?:$|\?)|subscribe(?:$|\?)|events\/|drive\/)/.test(path)
+    ) {
+      return window.PYLON_API_ORIGIN.replace(/\/+$/, '') + path;
+    }
     const base = detectBase();
     if (!base || path === base || path.startsWith(base + '/')) return path;
     return base + path;

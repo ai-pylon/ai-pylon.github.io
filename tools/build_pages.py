@@ -406,7 +406,7 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
                         if "/pylon-config.js" not in html and '<script src="/appui/loader.js">' in html:
                             html = html.replace(
                                 '<script src="/appui/loader.js">',
-                                '<script src="/pylon-config.js"></script>\n  <script src="/appui/src/foundation/frontend-auth.js"></script>\n  <script src="/appui/loader.js">',
+                                '<script src="/pylon-config.js"></script>\n  <script src="/appui/loader.js">',
                                 1,
                             )
                         if base_path:
@@ -455,6 +455,24 @@ def build(out: Path, api_origin: str, base_path: str = "", clean: bool = True) -
             f"  window.APPUI_BASE={json.dumps(base_path + '/appui/')};\n"
             f"  window.__PYLON_BASE__={json.dumps(base_path)};\n"
             f"  window.APPUI_ASSET_VERSION={json.dumps(version_hash)};\n"
+            "  if(typeof window.fetch==='function'&&resolved&&location.origin&&resolved!==location.origin){\n"
+            "    var _origFetch=window.fetch.bind(window);\n"
+            "    var _isStatic=function(p){return /^\\/(?:appui\\/|pages\\/|catalogs\\/|daemons\\/|dependencies\\/|pylon-config\\.js|release\\.json|$)/.test(p);};\n"
+            "    window.fetch=function(input,init){\n"
+            "      try{\n"
+            "        if(typeof input==='string'&&input.startsWith('/')&&!input.startsWith('//')&&!_isStatic(input)){\n"
+            "          return _origFetch(resolved+input,init);\n"
+            "        }\n"
+            "        if(input instanceof Request){\n"
+            "          var ru=new URL(input.url);\n"
+            "          if(ru.origin===location.origin&&!_isStatic(ru.pathname)){\n"
+            "            return _origFetch(new Request(resolved+ru.pathname+ru.search,input),init);\n"
+            "          }\n"
+            "        }\n"
+            "      }catch(_){}\n"
+            "      return _origFetch(input,init);\n"
+            "    };\n"
+            "  }\n"
             "})();\n",
             encoding="utf-8",
         )
