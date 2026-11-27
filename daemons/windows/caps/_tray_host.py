@@ -492,7 +492,10 @@ class TrayHost:
             | getattr(subprocess, "DETACHED_PROCESS", 0)
             | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
         )
-        kill_part = f"taskkill /F /T /PID {dpid} >nul 2>&1 & " if (dpid and dpid != os.getpid()) else ""
+        # Never use /T here: _tray_host is a child of dpid, so /T would also kill
+        # this detached cmd.exe restart helper before it can relaunch!
+        # Killing dpid alone closes its Windows Job Object, which cleanly stops uvicorn.
+        kill_part = f"taskkill /F /PID {dpid} >nul 2>&1 & " if (dpid and dpid != os.getpid()) else ""
         if restart_cmd and os.path.isfile(restart_cmd):
             launch_part = f'call "{restart_cmd}"'
             cwd = os.path.dirname(restart_cmd) or restart_cwd
@@ -506,7 +509,7 @@ class TrayHost:
         else:
             launch_part = ""
             cwd = restart_cwd
-        cmd_str = f"{kill_part}ping -n 2 127.0.0.1 >nul & {launch_part}" if launch_part else kill_part.rstrip(" &")
+        cmd_str = f"{kill_part}ping -n 3 127.0.0.1 >nul & {launch_part}" if launch_part else kill_part.rstrip(" &")
         if cmd_str:
             try:
                 subprocess.Popen(
