@@ -250,7 +250,13 @@ window.AppUIReady.then(function () {
       routeDeepLink(app, r, param);
     } else {
       var start = (navigator.platform || "").toLowerCase().indexOf("win") >= 0 ? "vfs://file:///C:/" : "vfs://file:///";
-      browse(app, r, start);
+      var alt = start === "vfs://file:///C:/" ? "vfs://file:///" : "vfs://file:///C:/";
+      browse(app, r, start).then(function () {
+        var errBox = r.querySelector("#listing .empty");
+        if (errBox && CUR === start && /not found|no such file|cannot find|does not exist/i.test(errBox.textContent || "")) {
+          browse(app, r, alt);
+        }
+      });
       app.setStatus("Enter a vfs:// url, browse the local disk, or mount a repo.");
     }
   }

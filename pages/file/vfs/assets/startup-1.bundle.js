@@ -249,7 +249,15 @@
 
     function groupChildren(which) {
       if (which === "thispc") {
-        return listKids(winLocal());   // real disk listing at the drive root
+        var primary = winLocal();
+        var fallback = primary === "vfs://file:///C:/" ? "vfs://file:///" : "vfs://file:///C:/";
+        return listKids(primary).then(function (kids) {
+          if (kids && kids.length === 1 && kids[0] && kids[0].data && kids[0].data.err) {
+            delete KIDS[primary];
+            return listKids(fallback);
+          }
+          return kids;
+        });
       }
       if (which === "aliases") {
         // Aliases (the current reference model) + any legacy mounts (read-only).
@@ -719,7 +727,13 @@ window.AppUIReady.then(function () {
       routeDeepLink(app, r, param);
     } else {
       var start = (navigator.platform || "").toLowerCase().indexOf("win") >= 0 ? "vfs://file:///C:/" : "vfs://file:///";
-      browse(app, r, start);
+      var alt = start === "vfs://file:///C:/" ? "vfs://file:///" : "vfs://file:///C:/";
+      browse(app, r, start).then(function () {
+        var errBox = r.querySelector("#listing .empty");
+        if (errBox && CUR === start && /not found|no such file|cannot find|does not exist/i.test(errBox.textContent || "")) {
+          browse(app, r, alt);
+        }
+      });
       app.setStatus("Enter a vfs:// url, browse the local disk, or mount a repo.");
     }
   }

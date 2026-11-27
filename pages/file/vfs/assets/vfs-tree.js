@@ -119,7 +119,15 @@
 
     function groupChildren(which) {
       if (which === "thispc") {
-        return listKids(winLocal());   // real disk listing at the drive root
+        var primary = winLocal();
+        var fallback = primary === "vfs://file:///C:/" ? "vfs://file:///" : "vfs://file:///C:/";
+        return listKids(primary).then(function (kids) {
+          if (kids && kids.length === 1 && kids[0] && kids[0].data && kids[0].data.err) {
+            delete KIDS[primary];
+            return listKids(fallback);
+          }
+          return kids;
+        });
       }
       if (which === "aliases") {
         // Aliases (the current reference model) + any legacy mounts (read-only).
