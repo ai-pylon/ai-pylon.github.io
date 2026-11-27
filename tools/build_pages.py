@@ -419,6 +419,9 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
     }}
 
     function appUrlFor(origin, app) {{
+      if (app.hosting === 'server' && app.page) {{
+        return app.page.startsWith('http') ? app.page : (origin + app.page);
+      }}
       return BASE + app.page + '?server=' + encodeURIComponent(origin);
     }}
 
@@ -486,6 +489,12 @@ def _render_launcher_html(base_path: str, api_origin: str) -> str:
       span.className = 'leaf-title';
       span.textContent = app.title;
       a.appendChild(span);
+      if (app.pack) {{
+        const pb = document.createElement('span');
+        pb.className = 'badge';
+        pb.textContent = app.pack.replace(/^pylon-apps-/, '');
+        a.appendChild(pb);
+      }}
       a.addEventListener('click', e => {{
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
         e.preventDefault();
