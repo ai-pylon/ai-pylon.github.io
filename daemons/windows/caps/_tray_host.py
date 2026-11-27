@@ -236,6 +236,8 @@ class TrayHost:
                 items.append(pystray.Menu.SEPARATOR)
                 items.extend(self._render_items(self._dyn_items))
         items.append(pystray.Menu.SEPARATOR)
+        if not is_client:
+            items.append(pystray.MenuItem("Copy Local API Token", self._click(self._copy_local_api_token)))
         items.append(pystray.MenuItem("Restart", self._click(self._restart)))
         items.append(pystray.MenuItem("Quit", self._quit))
         return pystray.Menu(*items)
@@ -439,6 +441,42 @@ class TrayHost:
             self._icon.stop()
         except Exception:  # noqa: BLE001
             pass
+
+    def _copy_local_api_token(self):
+        import subprocess
+        data_dir = (os.environ.get("PYLON2_DATA_DIR") or "").strip()
+        candidates = []
+        if data_dir:
+            candidates.append(os.path.join(data_dir, "host-config", "daemons", ".local-api-token"))
+        candidates.append(os.path.join(os.path.expanduser("~"), "ai-pylon", "data", "host-config", "daemons", ".local-api-token"))
+        tok = ""
+        for p in candidates:
+            if os.path.isfile(p):
+                try:
+                    tok = open(p, encoding="utf-8").read().strip()
+                    if tok:
+                        break
+                except OSError:
+                    pass
+        if not tok:
+            try:
+                self._icon.notify("Local API token not found yet — restart server once.", NAME)
+            except Exception:  # noqa: BLE001
+                pass
+            return
+        try:
+            subprocess.run(
+                ["clip.exe"],
+                input=tok.encode("utf-8"),
+                check=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            self._icon.notify("Copied local API token to clipboard. Paste into 🔓 on ai-pylon.github.io.", NAME)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                self._icon.notify("Could not copy token: %s" % str(exc)[:60], NAME)
+            except Exception:  # noqa: BLE001
+                pass
 
     def _restart(self, *_a):
         import subprocess

@@ -120,6 +120,35 @@ def client_token_path():
     return _data_root() / 'host-config' / 'daemons' / '.client-agent-token'
 
 
+def local_api_token_path():
+    return _data_root() / 'host-config' / 'daemons' / '.local-api-token'
+
+
+def ensure_local_api_token():
+    """Return a persistent per-machine Bearer token for loopback server API access.
+
+    Only its SHA-256 hash is passed to the server via PYLON_DEPLOY_TOKEN_SHA256;
+    the plaintext token stays on disk for the local user to paste into the UI.
+    """
+    p = local_api_token_path()
+    try:
+        if p.is_file():
+            existing = p.read_text(encoding='utf-8').strip()
+            if len(existing) >= 24:
+                return existing
+    except OSError:
+        pass
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tok = secrets.token_urlsafe(32)
+    p.write_text(tok + '\n', encoding='utf-8')
+    try:
+        if os.name != 'nt':
+            os.chmod(p, 0o600)
+    except OSError:
+        pass
+    return tok
+
+
 def normalize_framework_url(raw):
     """Normalize user input like 'pylon-server.duckdns.org' or 'https://host' into ws(s)://.../agent."""
     val = (raw or '').strip()
@@ -358,6 +387,12 @@ class LocalServer:
                'PYLON2_SERVER_HOST': self.host,
                'PYLON2_SERVER_PORT': str(self.port),
                'PYTHONUNBUFFERED': '1'}
+        if self.host in ('127.0.0.1', 'localhost', '::1') and not env.get('PYLON_DEPLOY_TOKEN_SHA256'):
+            try:
+                tok = ensure_local_api_token()
+                env['PYLON_DEPLOY_TOKEN_SHA256'] = hashlib.sha256(tok.encode('utf-8')).hexdigest()
+            except OSError:
+                pass
         env.pop('PYLON2_AGENT_TOKEN', None)
         return env
 
