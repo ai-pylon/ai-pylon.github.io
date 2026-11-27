@@ -87,7 +87,7 @@
       "group": "file",
       "name": "vfs",
       "title": "VFS (Virtual File System)",
-      "category": "file",
+      "category": "provider",
       "description": "Location-transparent file access across backends via one self-describing URL: vfs://{endpoint}/{path}. endpoint carries its transport — file:///… or the self host (reach 'fs', this machine's real disk, in-process) or ssh://host (reach 'ssh', remote SFTP via the platform/auth_ssh app). One uniform op contract (list/tree/read/write/stat/mkdir/delete/rename) regardless of where the bytes live. Portable: no win32, no paramiko in this app — the SSH half is delegated app-to-app to platform/auth_ssh; the local half is stdlib os. Ported (minimal core) from remote_ws's VFS.",
       "tags": [],
       "workspace": {
