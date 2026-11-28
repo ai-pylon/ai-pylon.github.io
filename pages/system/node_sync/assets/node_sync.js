@@ -1,7 +1,14 @@
-// Node Sync (HTTP) — AppUI management page for system/node_sync.
+// Node Sync (HTTP) — Clean AppUI management page for system/node_sync.
 (function () {
   var APP = "system/node_sync";
-  var state = { status: null, diff: null };
+  var state = {
+    status: null,
+    selectedPeer: "",
+    scope: "code",
+    diff: null,
+    filterKind: "all",
+    busy: false
+  };
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
@@ -31,186 +38,268 @@
     return response.data;
   }
 
-  function mountShell(el) {
-    el.innerHTML =
-      '<div class="ns-wrap">' +
-        '<div class="ns-banner" id="ns-banner">Loading Node Sync...</div>' +
-
-        '<section class="ns-card">' +
-          '<div class="ns-head">' +
-            '<h2>HTTP Peers</h2>' +
-            '<button class="ns-btn" id="ns-refresh" type="button">Refresh</button>' +
-          '</div>' +
-          '<div class="ns-table-wrap" id="ns-peers-table"></div>' +
-          '<form class="ns-form" id="ns-peer-form">' +
-            '<label class="ns-field">Peer Name<input name="name" required placeholder="vm"></label>' +
-            '<label class="ns-field">Base URL<input name="base_url" required placeholder="https://pylon-server.duckdns.org"></label>' +
-            '<label class="ns-field">Admin ID (/_pylon/auth/login)<input name="username" autocomplete="username" placeholder="admin"></label>' +
-            '<label class="ns-field">Admin Password (write-only)<input name="password" type="password" autocomplete="current-password"></label>' +
-            '<label class="ns-field">Bearer Token (optional, write-only)<input name="bearer_token" type="password" autocomplete="off"></label>' +
-            '<label class="ns-field">Cookie Header (optional, write-only)<input name="cookie" type="password" autocomplete="off"></label>' +
-            '<label class="ns-check"><input name="use_auth_http" type="checkbox" checked> Use platform/auth_http</label>' +
-            '<button class="ns-btn primary" type="submit">Save Peer</button>' +
-          '</form>' +
-        '</section>' +
-
-        '<section class="ns-card">' +
-          '<div class="ns-head"><h2>Compare &amp; Sync (HTTP — No SSH Required)</h2></div>' +
-          '<form class="ns-form" id="ns-diff-form">' +
-            '<label class="ns-field">Peer<select name="peer" id="ns-diff-peer"></select></label>' +
-            '<label class="ns-field">Scope<select name="scope">' +
-              '<option value="code" selected>Code (apps, daemons, framework)</option>' +
-              '<option value="data">Data (data/, excluding host-config)</option>' +
-              '<option value="all">All (Code + Data)</option>' +
-            '</select></label>' +
-            '<label class="ns-field">Subpath (optional)<input name="subpath" placeholder="e.g. apps/system or daemons"></label>' +
-            '<button class="ns-btn primary" type="submit">Compare (Diff)</button>' +
-          '</form>' +
-          '<div class="ns-actions ns-hidden" id="ns-sync-bar">' +
-            '<span class="ns-pill" id="ns-diff-summary"></span>' +
-            '<button class="ns-btn" id="ns-sel-all" type="button">Select All</button>' +
-            '<button class="ns-btn" id="ns-sel-none" type="button">Clear Selection</button>' +
-            '<button class="ns-btn primary" id="ns-push" type="button">Push Selected (Local → Peer)</button>' +
-            '<button class="ns-btn primary" id="ns-pull" type="button">Pull Selected (Peer → Local)</button>' +
-          '</div>' +
-          '<div class="ns-table-wrap" id="ns-diff-table"></div>' +
-          '<pre class="ns-output ns-hidden" id="ns-out"></pre>' +
-        '</section>' +
-      '</div>';
-    return el;
+  function authBadge(p) {
+    if (p.username && p.has_password) return '<span class="ns-pill ok">🔑 ' + esc(p.username) + '</span>';
+    if (p.has_bearer_token) return '<span class="ns-pill ok">🔐 Bearer</span>';
+    if (p.has_cookie) return '<span class="ns-pill ok">🍪 Cookie</span>';
+    return '<span class="ns-pill warn">⚠ Auth needed</span>';
   }
 
-  function showOut(root, data) {
-    var el = root.querySelector("#ns-out");
-    el.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-    el.classList.remove("ns-hidden");
-  }
-
-  function renderStatus(root, s) {
-    var b = root.querySelector("#ns-banner");
-    if (!s || !s.ok) {
-      b.innerHTML = '<span class="ns-pill bad">Error: ' + esc((s && s.error) || "unavailable") + '</span>';
-      return;
+  function renderSidebar(sb) {
+    var peers = (state.status && state.status.peers) || [];
+    if (!state.selectedPeer && peers.length) state.selectedPeer = peers[0].name;
+    if (state.selectedPeer && !peers.some(function (p) { return p.name === state.selectedPeer; })) {
+      state.selectedPeer = peers.length ? peers[0].name : "";
     }
-    var peers = s.peers || [];
-    b.innerHTML =
-      '<span class="ns-pill ok">Local: ' + esc(s.hostname) + '</span>' +
-      '<span class="ns-pill">Peers: ' + esc(peers.length) + '</span>' +
-      '<span class="ns-pill">Backups: ' + esc((s.recent_backups || []).length) + '</span>';
-
-    var sel = root.querySelector("#ns-diff-peer");
-    sel.innerHTML = peers.map(function (p) {
-      return '<option value="' + esc(p.name) + '">' + esc(p.name) + ' (' + esc(p.base_url) + ')</option>';
-    }).join("") || '<option value="">(add a peer first)</option>';
-
-    var box = root.querySelector("#ns-peers-table");
+    var list = sb.querySelector("#ns-peer-list");
     if (!peers.length) {
-      box.innerHTML = '<div class="ns-mono" style="opacity:.7">No HTTP peers configured yet.</div>';
+      list.innerHTML = '<div class="ns-empty" style="padding:18px 8px">No peers yet.<br>Click <b>+ Add Peer</b> to connect your VM.</div>';
       return;
     }
-    box.innerHTML =
-      '<table class="ns-table"><thead><tr><th>Name</th><th>URL</th><th>Auth</th><th>Actions</th></tr></thead><tbody>' +
-      peers.map(function (p) {
-        var auth = [];
-        if (p.username && p.has_password) auth.push("id/pw (" + p.username + ")");
-        if (p.use_auth_http) auth.push("auth_http");
-        if (p.has_bearer_token) auth.push("bearer");
-        if (p.has_cookie) auth.push("cookie");
-        return (
-          '<tr>' +
-            '<td class="ns-mono">' + esc(p.name) + '</td>' +
-            '<td class="ns-mono">' + esc(p.base_url) + '</td>' +
-            '<td>' + esc(auth.join(", ") || "none") + '</td>' +
-            '<td>' +
-              '<button class="ns-btn" data-edit-peer="' + esc(p.name) + '" type="button">Edit</button> ' +
-              '<button class="ns-btn danger" data-del-peer="' + esc(p.name) + '" type="button">Delete</button>' +
-            '</td>' +
-          '</tr>'
-        );
-      }).join("") +
-      '</tbody></table>';
+    list.innerHTML = peers.map(function (p) {
+      var active = p.name === state.selectedPeer ? " active" : "";
+      return (
+        '<div class="ns-peer-card' + active + '" data-sel-peer="' + esc(p.name) + '">' +
+          '<div class="ns-peer-top">' +
+            '<span class="ns-peer-name">' + esc(p.name) + '</span>' +
+            authBadge(p) +
+          '</div>' +
+          '<div class="ns-peer-url" title="' + esc(p.base_url) + '">' + esc(p.base_url) + '</div>' +
+          '<div class="ns-peer-foot">' +
+            '<span style="font-size:11px;color:var(--text-muted)">HTTP Peer</span>' +
+            '<div class="ns-peer-acts">' +
+              '<button class="ns-btn sm" data-edit-peer="' + esc(p.name) + '" type="button">Edit</button>' +
+              '<button class="ns-btn sm danger" data-del-peer="' + esc(p.name) + '" type="button">Delete</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join("");
   }
 
-  function renderDiff(root, d) {
-    var bar = root.querySelector("#ns-sync-bar");
-    var tbl = root.querySelector("#ns-diff-table");
-    if (!d || !d.ok) {
-      bar.classList.add("ns-hidden");
-      tbl.innerHTML = "";
-      showOut(root, d);
+  function renderHero(root) {
+    var s = state.status;
+    var hero = root.querySelector("#ns-hero");
+    if (!s || !s.ok) {
+      hero.innerHTML = '<span class="ns-pill bad">Error: ' + esc((s && s.error) || "unavailable") + '</span>';
       return;
     }
+    var peer = (s.peers || []).find(function (p) { return p.name === state.selectedPeer; });
+    hero.innerHTML =
+      '<div class="ns-hero-title">' +
+        '<span class="ns-node-badge">💻 ' + esc(s.hostname || "Local") + '</span>' +
+        '<span class="ns-arrow">⇄</span>' +
+        (peer
+          ? '<span class="ns-node-badge">☁️ ' + esc(peer.name) + ' <span class="ns-mono" style="font-weight:400;color:var(--text-muted)">' + esc(peer.base_url) + '</span></span>' + authBadge(peer)
+          : '<span class="ns-pill warn">Select or add a peer</span>') +
+      '</div>' +
+      '<div class="ns-hero-meta">' +
+        '<span class="ns-pill">Backups: ' + esc((s.recent_backups || []).length) + '</span>' +
+        (peer ? '<button class="ns-btn sm" id="ns-hero-edit" type="button">Peer Settings</button>' : '') +
+        '<button class="ns-btn sm" id="ns-refresh" type="button">Refresh</button>' +
+      '</div>';
+  }
+
+  function showAlert(root, msg, kind) {
+    var el = root.querySelector("#ns-alert");
+    if (!msg) { el.classList.add("ns-hidden"); return; }
+    el.className = "ns-alert" + (kind ? " " + kind : "");
+    el.textContent = msg;
+  }
+
+  function renderDiff(root) {
+    var d = state.diff;
+    var kpis = root.querySelector("#ns-kpis");
+    var card = root.querySelector("#ns-diff-card");
+    var tbl = root.querySelector("#ns-diff-table");
+
+    if (!d) {
+      kpis.classList.add("ns-hidden");
+      card.classList.add("ns-hidden");
+      return;
+    }
+    if (!d.ok) {
+      kpis.classList.add("ns-hidden");
+      card.classList.add("ns-hidden");
+      showAlert(root, d.error || "Diff failed", "bad");
+      return;
+    }
+
     var c = d.counts || {};
-    root.querySelector("#ns-diff-summary").textContent =
-      "Only Local: " + (c.only_local || 0) +
-      " · Only Remote: " + (c.only_remote || 0) +
-      " · Modified: " + (c.modified || 0) +
-      " · Identical: " + (c.same || 0);
-    bar.classList.remove("ns-hidden");
+    var modN = c.modified || 0, locN = c.only_local || 0, remN = c.only_remote || 0, sameN = c.same || 0;
+    var totalDiff = modN + locN + remN;
+
+    kpis.classList.remove("ns-hidden");
+    kpis.innerHTML =
+      '<button type="button" class="ns-kpi' + (state.filterKind === "all" ? " on" : "") + '" data-fk="all"><div class="k">All Changes</div><div class="v">' + totalDiff + '</div></button>' +
+      '<button type="button" class="ns-kpi warn' + (state.filterKind === "modified" ? " on" : "") + '" data-fk="modified"><div class="k">Modified</div><div class="v">' + modN + '</div></button>' +
+      '<button type="button" class="ns-kpi ok' + (state.filterKind === "only_local" ? " on" : "") + '" data-fk="only_local"><div class="k">Local Only</div><div class="v">' + locN + '</div></button>' +
+      '<button type="button" class="ns-kpi info' + (state.filterKind === "only_remote" ? " on" : "") + '" data-fk="only_remote"><div class="k">Remote Only</div><div class="v">' + remN + '</div></button>' +
+      '<div class="ns-kpi" style="cursor:default"><div class="k">Identical</div><div class="v">' + sameN + '</div></div>';
 
     var rows = [];
     (d.modified || []).forEach(function (x) {
-      rows.push({ path: x.path, kind: "modified", badge: "warn", info: "newer: " + x.newer + " (" + fmtSize(x.local_size) + " / " + fmtSize(x.remote_size) + ")" });
+      rows.push({ path: x.path, kind: "modified", badge: "warn", label: "Modified", info: (x.newer === "local" ? "Local newer" : x.newer === "remote" ? "Remote newer" : "Same time") + " · " + fmtSize(x.local_size) + " / " + fmtSize(x.remote_size) });
     });
     (d.only_local || []).forEach(function (x) {
-      rows.push({ path: x.path, kind: "only_local", badge: "ok", info: "local only (" + fmtSize(x.local_size) + ")" });
+      rows.push({ path: x.path, kind: "only_local", badge: "ok", label: "Local only", info: fmtSize(x.local_size) });
     });
     (d.only_remote || []).forEach(function (x) {
-      rows.push({ path: x.path, kind: "only_remote", badge: "", info: "remote only (" + fmtSize(x.remote_size) + ")" });
+      rows.push({ path: x.path, kind: "only_remote", badge: "info", label: "Remote only", info: fmtSize(x.remote_size) });
     });
 
-    if (!rows.length) {
-      tbl.innerHTML = '<div class="ns-pill ok">All ' + esc(c.same || 0) + ' files are identical.</div>';
+    var shown = state.filterKind === "all" ? rows : rows.filter(function (r) { return r.kind === state.filterKind; });
+    card.classList.remove("ns-hidden");
+
+    if (!shown.length) {
+      tbl.innerHTML = '<div class="ns-empty">' + (totalDiff === 0 ? '✅ All ' + sameN + ' files are identical.' : 'No files match this filter.') + '</div>';
       return;
     }
     tbl.innerHTML =
-      '<table class="ns-table"><thead><tr><th></th><th>Path</th><th>Status</th><th>Detail</th></tr></thead><tbody>' +
-      rows.map(function (r) {
+      '<table class="ns-table"><thead><tr><th style="width:32px"></th><th>File Path</th><th style="width:110px">Status</th><th>Detail</th></tr></thead><tbody>' +
+      shown.map(function (r) {
         return (
           '<tr>' +
             '<td><input type="checkbox" class="ns-path-cb" value="' + esc(r.path) + '" checked></td>' +
             '<td class="ns-mono">' + esc(r.path) + '</td>' +
-            '<td><span class="ns-pill ' + r.badge + '">' + esc(r.kind) + '</span></td>' +
-            '<td>' + esc(r.info) + '</td>' +
+            '<td><span class="ns-pill ' + r.badge + '">' + esc(r.label) + '</span></td>' +
+            '<td style="color:var(--text-muted);font-size:12px">' + esc(r.info) + '</td>' +
           '</tr>'
         );
       }).join("") +
       '</tbody></table>';
   }
 
-  async function refresh(app, root) {
-    app.setStatus("Refreshing Node Sync...");
-    var s = await callOp("status", {}, false);
-    state.status = s;
-    renderStatus(root, s);
-    app.setStatus("Ready");
+  function mountSidebar(el) {
+    el.innerHTML =
+      '<div class="ns-sidebar">' +
+        '<div class="ns-sb-head">' +
+          '<h2>HTTP Peers</h2>' +
+          '<button class="ns-btn sm primary" id="ns-add-peer" type="button">+ Add Peer</button>' +
+        '</div>' +
+        '<div class="ns-peer-list" id="ns-peer-list"></div>' +
+      '</div>';
+    return el;
+  }
+
+  function mountContent(el) {
+    el.innerHTML =
+      '<div class="ns-wrap">' +
+        '<div class="ns-hero" id="ns-hero">Loading Node Sync…</div>' +
+        '<div class="ns-toolbar">' +
+          '<div class="ns-seg" id="ns-scope-seg">' +
+            '<button type="button" data-scope="code" class="on">Code</button>' +
+            '<button type="button" data-scope="data">Data</button>' +
+            '<button type="button" data-scope="all">All</button>' +
+          '</div>' +
+          '<input class="ns-subpath" id="ns-subpath" placeholder="Optional subpath (e.g. apps/personal)">' +
+          '<button class="ns-btn primary" id="ns-compare" type="button">Compare (Diff)</button>' +
+        '</div>' +
+        '<div class="ns-alert ns-hidden" id="ns-alert"></div>' +
+        '<div class="ns-kpis ns-hidden" id="ns-kpis"></div>' +
+        '<section class="ns-card ns-hidden" id="ns-diff-card">' +
+          '<div class="ns-card-bar">' +
+            '<div class="ns-actions">' +
+              '<button class="ns-btn sm" id="ns-sel-all" type="button">Select All</button>' +
+              '<button class="ns-btn sm" id="ns-sel-none" type="button">Clear</button>' +
+            '</div>' +
+            '<div class="ns-actions">' +
+              '<button class="ns-btn primary" id="ns-push" type="button">↑ Push Selected (Local → Remote)</button>' +
+              '<button class="ns-btn primary" id="ns-pull" type="button">↓ Pull Selected (Remote → Local)</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="ns-table-wrap" id="ns-diff-table"></div>' +
+        '</section>' +
+        '<dialog class="ns-dialog" id="ns-peer-dialog">' +
+          '<form id="ns-peer-form">' +
+            '<div class="ns-dlg-head">' +
+              '<h3 id="ns-dlg-title">Add HTTP Peer</h3>' +
+              '<button class="ns-btn sm" id="ns-dlg-close" type="button">✕</button>' +
+            '</div>' +
+            '<div class="ns-dlg-body">' +
+              '<label class="ns-field">Peer Name<input name="name" required placeholder="vm"></label>' +
+              '<label class="ns-field">Server URL<input name="base_url" required placeholder="https://pylon-server.duckdns.org"></label>' +
+              '<label class="ns-field">Admin ID (/_pylon/auth/login)<input name="username" autocomplete="username" placeholder="admin"></label>' +
+              '<label class="ns-field">Admin Password (write-only)<input name="password" type="password" autocomplete="current-password" placeholder="Leave blank to keep existing"></label>' +
+              '<details class="ns-adv"><summary>Advanced (Bearer Token / Cookie)</summary>' +
+                '<div class="ns-adv-inner">' +
+                  '<label class="ns-field">Bearer Token (optional)<input name="bearer_token" type="password" autocomplete="off"></label>' +
+                  '<label class="ns-field">Cookie Header (optional)<input name="cookie" type="password" autocomplete="off"></label>' +
+                  '<label class="ns-check"><input name="use_auth_http" type="checkbox" checked> Use platform/auth_http</label>' +
+                '</div>' +
+              '</details>' +
+            '</div>' +
+            '<div class="ns-dlg-foot">' +
+              '<button class="ns-btn" id="ns-dlg-cancel" type="button">Cancel</button>' +
+              '<button class="ns-btn primary" type="submit">Save Peer</button>' +
+            '</div>' +
+          '</form>' +
+        '</dialog>' +
+      '</div>';
+    return el;
   }
 
   window.AppUIReady.then(function () {
-    var contentEl = null;
+    var contentEl = null, sidebarEl = null;
     var app = AppUI.createApp({
       id: "system-node-sync",
       title: "Node Sync (HTTP)",
       menu: { View: [{ id: "refresh", label: "Refresh" }] },
-      onAction: function (_m, id) { if (id === "refresh" && contentEl) refresh(app, contentEl); },
-      content: { render: function (el) { contentEl = mountShell(el); } },
+      onAction: function (_m, id) { if (id === "refresh") refresh(); },
+      leftSidebar: { width: 280, tabs: [{ id: "peers", label: "Peers", active: true, render: function (el) { sidebarEl = mountSidebar(el); } }] },
+      content: { render: function (el) { contentEl = mountContent(el); } },
       statusbar: {}
     });
 
-    function selectedPaths(root) {
-      return Array.from(root.querySelectorAll(".ns-path-cb:checked")).map(function (el) { return el.value; });
+    async function refresh() {
+      app.setStatus("Refreshing peers…");
+      var s = await callOp("status", {}, false);
+      state.status = s;
+      if (sidebarEl) renderSidebar(sidebarEl);
+      if (contentEl) renderHero(contentEl);
+      app.setStatus("Ready");
     }
 
-    async function runSync(root, direction) {
-      if (!state.diff || !state.diff.ok) return;
-      var paths = selectedPaths(root);
-      if (!paths.length) {
-        showOut(root, "No files selected.");
-        return;
+    function openPeerDialog(peer) {
+      var dlg = contentEl.querySelector("#ns-peer-dialog");
+      var form = contentEl.querySelector("#ns-peer-form");
+      contentEl.querySelector("#ns-dlg-title").textContent = peer ? "Edit Peer · " + peer.name : "Add HTTP Peer";
+      form.querySelector('input[name="name"]').value = peer ? peer.name : "";
+      form.querySelector('input[name="base_url"]').value = peer ? peer.base_url : "https://pylon-server.duckdns.org";
+      form.querySelector('input[name="username"]').value = peer ? (peer.username || "") : "";
+      form.querySelector('input[name="password"]').value = "";
+      form.querySelector('input[name="bearer_token"]').value = "";
+      form.querySelector('input[name="cookie"]').value = "";
+      form.querySelector('input[name="use_auth_http"]').checked = peer ? !!peer.use_auth_http : true;
+      dlg.showModal();
+      (peer ? form.querySelector('input[name="password"]') : form.querySelector('input[name="name"]')).focus();
+    }
+
+    async function runDiff() {
+      if (!state.selectedPeer) { showAlert(contentEl, "Add and select a peer first.", "bad"); return; }
+      var btn = contentEl.querySelector("#ns-compare");
+      btn.disabled = true;
+      showAlert(contentEl, "");
+      app.setStatus("Comparing with " + state.selectedPeer + "…");
+      try {
+        var subpath = (contentEl.querySelector("#ns-subpath").value || "").trim();
+        var d = await callOp("diff", { peer: state.selectedPeer, scope: state.scope, subpath: subpath }, false);
+        state.diff = d;
+        state.filterKind = "all";
+        renderDiff(contentEl);
+        app.setStatus(d && d.ok ? "Diff ready." : "Diff failed.");
+      } finally {
+        btn.disabled = false;
       }
+    }
+
+    async function runSync(direction) {
+      if (!state.diff || !state.diff.ok) return;
+      var paths = Array.from(contentEl.querySelectorAll(".ns-path-cb:checked")).map(function (el) { return el.value; });
+      if (!paths.length) { showAlert(contentEl, "Select at least one file to sync.", "bad"); return; }
       var label = direction === "push" ? "Push (Local → " + state.diff.peer + ")" : "Pull (" + state.diff.peer + " → Local)";
       if (!window.confirm(label + " " + paths.length + " file(s)? Overwritten files are backed up automatically.")) return;
-      app.setStatus("Syncing " + paths.length + " file(s)...");
+      app.setStatus("Syncing " + paths.length + " file(s)…");
       var res = await callOp("sync", {
         peer: state.diff.peer,
         direction: direction,
@@ -218,52 +307,90 @@
         subpath: state.diff.subpath,
         paths: paths
       }, true);
-      showOut(root, res);
-      app.setStatus(res.ok ? "Synced " + res.synced_count + " file(s)." : "Sync completed with " + res.error_count + " error(s).");
-      var d = await callOp("diff", { peer: state.diff.peer, scope: state.diff.scope, subpath: state.diff.subpath }, false);
-      state.diff = d;
-      renderDiff(root, d);
+      if (res && res.ok) {
+        showAlert(contentEl, "✅ Synced " + (res.synced_count || 0) + " file(s) (" + direction + ").", "ok");
+      } else {
+        showAlert(contentEl, "Sync error: " + ((res && res.error) || JSON.stringify(res)), "bad");
+      }
+      await runDiff();
     }
 
     function wire() {
-      if (!contentEl) { setTimeout(wire, 20); return; }
-      var root = contentEl;
+      if (!contentEl || !sidebarEl) { setTimeout(wire, 20); return; }
+      var dlg = contentEl.querySelector("#ns-peer-dialog");
 
-      root.addEventListener("click", async function (ev) {
+      sidebarEl.addEventListener("click", async function (ev) {
+        if (ev.target.closest("#ns-add-peer")) { openPeerDialog(null); return; }
         var ed = ev.target.closest("[data-edit-peer]");
         if (ed) {
-          var ename = ed.getAttribute("data-edit-peer");
-          var peer = ((state.status && state.status.peers) || []).find(function (p) { return p.name === ename; });
-          if (peer) {
-            var form = root.querySelector("#ns-peer-form");
-            form.querySelector('input[name="name"]').value = peer.name || "";
-            form.querySelector('input[name="base_url"]').value = peer.base_url || "";
-            form.querySelector('input[name="username"]').value = peer.username || "";
-            form.querySelector('input[name="use_auth_http"]').checked = !!peer.use_auth_http;
-            form.querySelector('input[name="password"]').focus();
-          }
+          ev.stopPropagation();
+          var nm = ed.getAttribute("data-edit-peer");
+          var peer = ((state.status && state.status.peers) || []).find(function (p) { return p.name === nm; });
+          if (peer) openPeerDialog(peer);
           return;
         }
         var del = ev.target.closest("[data-del-peer]");
         if (del) {
-          var name = del.getAttribute("data-del-peer");
-          if (!window.confirm("Delete HTTP peer '" + name + "'?")) return;
-          await callOp("peers_delete", { name: name }, true);
-          await refresh(app, root);
+          ev.stopPropagation();
+          var dnm = del.getAttribute("data-del-peer");
+          if (!window.confirm("Delete HTTP peer '" + dnm + "'?")) return;
+          await callOp("peers_delete", { name: dnm }, true);
+          state.diff = null;
+          renderDiff(contentEl);
+          await refresh();
+          return;
+        }
+        var card = ev.target.closest("[data-sel-peer]");
+        if (card) {
+          state.selectedPeer = card.getAttribute("data-sel-peer");
+          state.diff = null;
+          renderSidebar(sidebarEl);
+          renderHero(contentEl);
+          renderDiff(contentEl);
+          showAlert(contentEl, "");
         }
       });
 
-      root.querySelector("#ns-refresh").addEventListener("click", function () { refresh(app, root); });
-      root.querySelector("#ns-sel-all").addEventListener("click", function () {
-        root.querySelectorAll(".ns-path-cb").forEach(function (c) { c.checked = true; });
+      contentEl.addEventListener("click", function (ev) {
+        if (ev.target.closest("#ns-refresh")) { refresh(); return; }
+        if (ev.target.closest("#ns-hero-edit")) {
+          var peer = ((state.status && state.status.peers) || []).find(function (p) { return p.name === state.selectedPeer; });
+          if (peer) openPeerDialog(peer);
+          return;
+        }
+        var sc = ev.target.closest("#ns-scope-seg button[data-scope]");
+        if (sc) {
+          state.scope = sc.getAttribute("data-scope");
+          contentEl.querySelectorAll("#ns-scope-seg button").forEach(function (b) {
+            b.classList.toggle("on", b.getAttribute("data-scope") === state.scope);
+          });
+          return;
+        }
+        var fk = ev.target.closest(".ns-kpi[data-fk]");
+        if (fk) {
+          state.filterKind = fk.getAttribute("data-fk");
+          renderDiff(contentEl);
+          return;
+        }
+        if (ev.target.closest("#ns-compare")) { runDiff(); return; }
+        if (ev.target.closest("#ns-sel-all")) {
+          contentEl.querySelectorAll(".ns-path-cb").forEach(function (c) { c.checked = true; });
+          return;
+        }
+        if (ev.target.closest("#ns-sel-none")) {
+          contentEl.querySelectorAll(".ns-path-cb").forEach(function (c) { c.checked = false; });
+          return;
+        }
+        if (ev.target.closest("#ns-push")) { runSync("push"); return; }
+        if (ev.target.closest("#ns-pull")) { runSync("pull"); return; }
+        if (ev.target.closest("#ns-dlg-close") || ev.target.closest("#ns-dlg-cancel")) { dlg.close(); }
       });
-      root.querySelector("#ns-sel-none").addEventListener("click", function () {
-        root.querySelectorAll(".ns-path-cb").forEach(function (c) { c.checked = false; });
-      });
-      root.querySelector("#ns-push").addEventListener("click", function () { runSync(root, "push"); });
-      root.querySelector("#ns-pull").addEventListener("click", function () { runSync(root, "pull"); });
 
-      root.querySelector("#ns-peer-form").addEventListener("submit", async function (ev) {
+      contentEl.querySelector("#ns-subpath").addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter") { ev.preventDefault(); runDiff(); }
+      });
+
+      contentEl.querySelector("#ns-peer-form").addEventListener("submit", async function (ev) {
         ev.preventDefault();
         var fd = new FormData(ev.target);
         var body = {
@@ -276,30 +403,17 @@
         if ((fd.get("bearer_token") || "").trim()) body.bearer_token = fd.get("bearer_token");
         if ((fd.get("cookie") || "").trim()) body.cookie = fd.get("cookie");
         var res = await callOp("peers_save", body, true);
-        ev.target.querySelector('input[name="password"]').value = "";
-        ev.target.querySelector('input[name="bearer_token"]').value = "";
-        ev.target.querySelector('input[name="cookie"]').value = "";
-        showOut(root, res);
-        await refresh(app, root);
+        dlg.close();
+        if (res && res.ok) {
+          state.selectedPeer = res.peer.name;
+          showAlert(contentEl, "✅ Saved peer '" + res.peer.name + "'.", "ok");
+        } else {
+          showAlert(contentEl, (res && res.error) || "Failed to save peer.", "bad");
+        }
+        await refresh();
       });
 
-      root.querySelector("#ns-diff-form").addEventListener("submit", async function (ev) {
-        ev.preventDefault();
-        var fd = new FormData(ev.target);
-        var peer = fd.get("peer");
-        if (!peer) { showOut(root, "Add and select a peer first."); return; }
-        app.setStatus("Comparing with " + peer + "...");
-        var d = await callOp("diff", {
-          peer: peer,
-          scope: fd.get("scope") || "code",
-          subpath: fd.get("subpath") || ""
-        }, false);
-        state.diff = d;
-        renderDiff(root, d);
-        app.setStatus(d && d.ok ? "Diff ready." : "Diff failed: " + (d && d.error));
-      });
-
-      refresh(app, root);
+      refresh();
     }
 
     wire();
