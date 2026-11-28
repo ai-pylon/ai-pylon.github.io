@@ -207,6 +207,7 @@ const AppUI = (function() {
       get Feedback() { return window.AppUIFeedback || null; },
       get SidebarSections() { return window.AppUISidebarSections || null; },
       get Breadcrumbs() { return window.AppUIBreadcrumbs || null; },
+      get CatalogView() { return window.AppUICatalogView || null; },
       get ContextMenu() { return window.AppUIContextMenu || null; },
       get Menu() { return window.AppUIMenu || null; },
       get Palette() { return window.AppUIPalette || null; },
