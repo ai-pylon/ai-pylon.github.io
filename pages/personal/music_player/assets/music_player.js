@@ -413,8 +413,11 @@ window.AppUIReady.then(()=>{
     panel.append(el("h2","Playback transport"));
     const mode=el("select");mode.setAttribute("aria-label","Playback transport");
     mode.add(new Option("VM proxy (default)","proxy"));mode.add(new Option("Browser-direct Google Drive","direct"));
-    directMode=storageGet("music-player:transport")==="direct";mode.value=directMode?"direct":"proxy";
-    const config=el("div");config.className="mp-direct-config";config.hidden=!directMode;
+    // Browser-direct OAuth tokens are ephemeral (in-memory only), so always start
+    // in VM proxy mode on page load instead of blocking playback with an expired direct session.
+    directMode=false;mode.value="proxy";
+    try{localStorage.setItem("music-player:transport","proxy");}catch(_){}
+    const config=el("div");config.className="mp-direct-config";config.hidden=true;
     const description=el("p","Direct playback uses a separate read-only Google authorization in this browser. No server access token is shared.");
     clientIdInput=el("input");clientIdInput.setAttribute("aria-label","Google Web OAuth client ID");clientIdInput.placeholder="Web application OAuth client ID";
     clientIdInput.value=storageGet("music-player:direct-client-id")||"";
