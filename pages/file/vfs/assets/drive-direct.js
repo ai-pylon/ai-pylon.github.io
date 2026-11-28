@@ -16,8 +16,28 @@ window.VFSDriveDirect=(()=>{
   function create({scope,worker,onStatus=()=>{}}){
     const target=new URL(scope,location.origin);
     if(target.origin!==location.origin||!target.pathname.startsWith("/apps/")||!target.pathname.endsWith("/"))throw Error("Invalid direct VFS scope");
+    const CACHE_KEY="vfs-drive-direct:tok:v1";
+    const CONSENT_KEY="vfs-drive-direct:consented:v1";
     let registration,access=null,expires=0,oauth,configuredId="",current=null,epoch=0,connecting=false;
     const connected=()=>!!access&&expires>Date.now()+5000;
+    function restoreCached(id){
+      try{
+        const raw=sessionStorage.getItem(CACHE_KEY);
+        if(!raw)return false;
+        const c=JSON.parse(raw);
+        if(c&&c.id===id&&typeof c.access==="string"&&Number.isFinite(c.expires)&&c.expires>Date.now()+15000){
+          access=c.access;expires=c.expires;return true;
+        }
+      }catch(_){}
+      return false;
+    }
+    function saveCached(id,tok,exp){
+      try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({id,access:tok,expires:exp}));}catch(_){}
+      try{localStorage.setItem(CONSENT_KEY,id);}catch(_){}
+    }
+    function clearCached(){
+      try{sessionStorage.removeItem(CACHE_KEY);}catch(_){}
+    }
     function rpc(data){
       const controller=navigator.serviceWorker.controller;
       if(!controller||new URL(controller.scriptURL).pathname!==new URL(worker,location.origin).pathname)throw Error("Direct worker not controlling this page. Reload and reconnect.");
@@ -42,7 +62,11 @@ window.VFSDriveDirect=(()=>{
       }
       await loadGIS();
       configuredId=id;
-      onStatus("Google authorization ready. Click Authorize Google.");
+      if(restoreCached(id)){
+        onStatus("Browser-direct authorized (restored session).");
+      }else{
+        onStatus("Google authorization ready. Click Authorize Google.");
+      }
     }
     function authorize(){
       if(!configuredId||!window.google?.accounts?.oauth2)throw Error("Set up direct connection first.");
@@ -56,9 +80,12 @@ window.VFSDriveDirect=(()=>{
           const scopes=String(r.scope||"").split(/\s+/).filter(Boolean),life=Number(r.expires_in);
           if(r.error||!r.access_token||!scopes.includes(SCOPE)||scopes.some(x=>x!==SCOPE)||!Number.isFinite(life)||life<30){onStatus("Read-only Google Drive authorization was not granted.");return;}
           access=r.access_token;expires=Date.now()+Math.min(life-15,3600)*1000;
+          saveCached(configuredId,access,expires);
           onStatus("Browser-direct authorized. New playback uses Google Drive directly.");
         },error_callback:reject});
-      try{oauth.requestAccessToken({prompt:"select_account"});}catch(_){reject();}
+      let prompt="select_account";
+      try{if(localStorage.getItem(CONSENT_KEY)===configuredId)prompt="";}catch(_){}
+      try{oauth.requestAccessToken({prompt});}catch(_){reject();}
     }
     async function open(handle){
       if(!connected())throw Error("Direct authorization expired or missing. Authorize Google, then resume.");
@@ -71,7 +98,8 @@ window.VFSDriveDirect=(()=>{
       try{await rpc({type:"release",id});}catch(_){}
     }
     async function disconnect(){
-      epoch++;connecting=false;access=null;expires=0;current=null;
+      epoch++;connecting=false;access=null;expires=0;current=null;clearCached();
+      try{localStorage.removeItem(CONSENT_KEY);}catch(_){}
       try{await rpc({type:"release"});}catch(_){}
       onStatus("Browser-direct disconnected. No Google access token retained.");
     }
