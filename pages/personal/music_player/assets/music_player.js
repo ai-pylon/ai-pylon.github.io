@@ -7,7 +7,7 @@ window.AppUIReady.then(()=>{
     if(!r.data?.ok)throw new Error(r.data?.error||"Music library unavailable");
     return r.data;
   }
-  let tree,body,roots=[],tracks=[],queue=[],index=-1,current=null,token=null,busy=false,folderEpoch=0,folder="",folderLoading=false,nextOffset=null,playingEpoch=0,treeEpoch=0,scanEpoch=0,scanning=false,waitingNext=false;
+  let tree,body,roots=[],tracks=[],otherFiles=[],queue=[],index=-1,current=null,token=null,busy=false,folderEpoch=0,folder="",folderLoading=false,nextOffset=null,playingEpoch=0,treeEpoch=0,scanEpoch=0,scanning=false,waitingNext=false;
   const MAX_SCAN_FOLDERS=512,MAX_QUEUE=5000;
   let scanStatus,cancelScanButton,queueCount,queueDisplay=0;
   let directClient=null,directMode=false,streamMode="proxy",directFeedback,directToggle,authorizeButton,clientIdInput;
@@ -157,11 +157,14 @@ window.AppUIReady.then(()=>{
       if(epoch!==folderEpoch)return;
       folder=r.url;nextOffset=r.next_offset;
       const found=r.entries.filter(x=>x.kind==="track");
+      const foundFiles=r.entries.filter(x=>x.kind==="file");
       tracks=(append?[...tracks,...found]:found).sort((a,b)=>collator.compare(a.name,b.name));
       tracks=[...new Map(tracks.map(x=>[trackKey(x),x])).values()];
+      otherFiles=(append?[...otherFiles,...foundFiles]:foundFiles).sort((a,b)=>collator.compare(a.name,b.name));
+      otherFiles=[...new Map(otherFiles.map(x=>[x.url,x])).values()];
       location.textContent=folder;location.title=folder;
       renderTracks();
-      message((tracks.length?tracks.length+" audio tracks. ":"No audio files at this level. Select a folder in the tree. ")+(r.ambiguous?"Duplicate names omitted. ":"")+(nextOffset!==null?"More entries available. ":"")+(r.checked_at?"Drive checked "+new Date(r.checked_at*1000).toLocaleTimeString():""));
+      message((tracks.length?tracks.length+" audio tracks. ":"No audio files at this level. ")+(otherFiles.length?otherFiles.length+" other files. ":"")+(r.ambiguous?"Duplicate names omitted. ":"")+(nextOffset!==null?"More entries available. ":"")+(r.checked_at?"Drive checked "+new Date(r.checked_at*1000).toLocaleTimeString():""));
       tree?.setActive(folder);
       if(!append){if(historyMode!=="none")updateFolderUrl(folder,historyMode);persistQueue();if(reveal)void revealFolder(folder,epoch).catch(()=>{});}
       return true;
@@ -231,11 +234,21 @@ window.AppUIReady.then(()=>{
     r.append(num,name,meta,action);return r;
   }
   function visibleTracks(){const q=filter.value.trim().toLowerCase();return tracks.filter(t=>t.name.toLowerCase().includes(q));}
+  function visibleOtherFiles(){const q=filter.value.trim().toLowerCase();return otherFiles.filter(f=>f.name.toLowerCase().includes(q));}
+  function fileRow(f){
+    const r=el("div");r.className="mp-track";r.style.opacity="0.72";
+    const num=el("span","📄");num.className="mp-num";
+    const name=el("span",f.name);name.className="mp-track-name";name.title=f.url;name.style.cursor="default";
+    const meta=el("span",bytes(f.size));meta.className="mp-size";
+    r.append(num,name,meta);return r;
+  }
   function renderTracks(){
     if(!trackList)return;
-    const rows=visibleTracks();trackList.replaceChildren();
-    if(!rows.length)trackList.append(el("p","No matching tracks."));
-    rows.forEach((t,i)=>trackList.append(row(t,i)));more.hidden=nextOffset===null;
+    const rows=visibleTracks(),files=visibleOtherFiles();trackList.replaceChildren();
+    if(!rows.length&&!files.length)trackList.append(el("p","No matching files."));
+    rows.forEach((t,i)=>trackList.append(row(t,i)));
+    files.forEach(f=>trackList.append(fileRow(f)));
+    more.hidden=nextOffset===null;
   }
   function renderQueue(){
     queueList.replaceChildren();
@@ -421,10 +434,9 @@ window.AppUIReady.then(()=>{
     controls.append(resumeButton,btn("Previous",()=>advance(-1)),btn("Next",()=>advance(1)),repeat,sh,btn("Stop",async()=>{cancelScan("Folder scan stopped.");if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Stopped · "+formatTime(resumeAt);persistQueue(true);message("Playback copy released.");}));
     body.append(audio,controls,directPanel());
     feedback=el("p","Choose a Drive folder in the sidebar.");feedback.className="mp-feedback";feedback.setAttribute("role","status");body.append(feedback);
-    const split=el("div");split.className="mp-split";body.append(split);
-    const listPanel=el("section");listPanel.className="mp-panel";listPanel.append(el("h2","Folder tracks"));
+    const listPanel=el("section");listPanel.className="mp-panel";listPanel.append(el("h2","Folder files"));
     location=el("p","Google Drive");location.className="mp-path";listPanel.append(location);
-    filter=el("input");filter.type="search";filter.placeholder="Filter tracks…";filter.setAttribute("aria-label","Filter tracks");filter.oninput=renderTracks;
+    filter=el("input");filter.type="search";filter.placeholder="Filter files & tracks…";filter.setAttribute("aria-label","Filter files");filter.oninput=renderTracks;
     const actions=el("div");actions.className="mp-actions";
     actions.append(btn("Play folder",()=>{if(!busy&&visibleTracks().length){cancelScan();queue=visibleTracks().slice();queueDisplay=0;renderQueue();playIndex(0);}}),btn("Add folder to queue",()=>{if(!appendQueue(visibleTracks()))message("Queue limit reached.");}));
     const recursive=el("div");recursive.className="mp-actions";
@@ -433,10 +445,18 @@ window.AppUIReady.then(()=>{
     scanStatus=el("p","");scanStatus.className="mp-feedback";scanStatus.setAttribute("role","status");scanStatus.id="mp-scan-status";
     trackList=el("div");trackList.className="mp-list";more=btn("Load more",()=>browse(folder,true).catch(()=>{}));more.hidden=true;
     listPanel.append(filter,actions,recursive,scanStatus,trackList,more);
-    const qPanel=el("section");qPanel.className="mp-panel";qPanel.append(el("h2","Play queue"),btn("Clear queue",async()=>{if(!busy){cancelScan();await dropToken();queue=[];index=-1;current=null;rememberedTrack=null;resumeAt=0;resumeButton.hidden=true;queueDisplay=0;title.textContent="Music Player";subtitle.textContent="Select a library folder to listen";renderTracks();renderQueue();persistQueue(true);}}));queueCount=el("p","0 tracks");queueCount.className="mp-path";qPanel.append(queueCount);queueList=el("div");queueList.className="mp-list";qPanel.append(queueList,playlistPanel());
-    split.append(listPanel,qPanel);renderTracks();renderQueue();
+    body.append(listPanel);renderTracks();
   }
-  AppUI.createApp({id:"personal-music-player",title:"Music Player",leftSidebar:{width:300,tabs:[{id:"library",label:"Library",active:true,render:sidebar}]},content:{render:content},statusbar:{}});
+  function rightQueueSidebar(host){
+    const qPanel=el("section");qPanel.className="mp-panel";qPanel.style.cssText="padding:10px;border:0;height:100%;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;overflow-y:auto";
+    const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:6px";
+    hdr.append(el("h2","Play queue"),btn("Clear queue",async()=>{if(!busy){cancelScan();await dropToken();queue=[];index=-1;current=null;rememberedTrack=null;resumeAt=0;resumeButton.hidden=true;queueDisplay=0;title.textContent="Music Player";subtitle.textContent="Select a library folder to listen";renderTracks();renderQueue();persistQueue(true);}}));
+    queueCount=el("p","0 tracks");queueCount.className="mp-path";
+    queueList=el("div");queueList.className="mp-list";
+    qPanel.append(hdr,queueCount,queueList,playlistPanel());
+    host.append(qPanel);renderQueue();
+  }
+  AppUI.createApp({id:"personal-music-player",title:"Music Player",leftSidebar:{width:300,tabs:[{id:"library",label:"Library",active:true,render:sidebar}]},rightSidebar:{width:340,title:"Play Queue",tabs:[{id:"music-player-queue",label:"♫ Play Queue",active:true,render:rightQueueSidebar}]},content:{render:content},statusbar:{}});
   async function start(){
     const savedFolder=restorePlayback();void refreshPlaylists();
     try{
