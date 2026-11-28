@@ -698,36 +698,44 @@ class TrayHost:
 
     def _self_populate_menu(self):
         """On (re)start, PULL the per-app menu from the framework so the context
-        menu is populated automatically — not left empty until something happens
-        to push it. Calls system/tray.menu (a read-only snapshot),
-        then applies the items locally. Best-effort + bounded retries (the
-        framework/notify may still be warming when the daemon respawns the host).
-        Runs on a background thread so it never blocks the pystray loop."""
+        menu is populated reliably — never left empty if the server warms slowly
+        or if the tray HWND isn't created yet. Runs on a background daemon thread."""
         import json as _json
         import time as _time
         import urllib.request
+        # Wait briefly for the main thread's Win32 tray window (_hwnd) so
+        # PostMessage menu updates are never dropped during startup.
+        for _ in range(100):
+            if getattr(self._icon, "_hwnd", None):
+                break
+            _time.sleep(0.1)
         url = self.fw_url + "/v1/apps/system/tray/menu"
-        # #10: the FIRST attempt is immediate (no leading sleep) so a warm
-        # framework populates the menu instantly; subsequent retries back off
-        # (1s, 2s, then 3s) to catch a framework that's still warming after a
-        # daemon respawn without a 3s dead window up front.
-        _backoff = [1, 2, 3, 3, 3, 3, 3, 3, 3]
-        for _attempt in range(10):
+        headers = {"Content-Type": "application/json"}
+        data_dir = os.environ.get("PYLON2_DATA_DIR") or ""
+        if data_dir:
+            tok_path = os.path.join(data_dir, "host-config", "daemons", ".local-api-token")
             try:
-                req = urllib.request.Request(url, data=b"{}",
-                                             headers={"Content-Type": "application/json"},
-                                             method="POST")
+                tok = open(tok_path, encoding="utf-8").read().strip()
+                if tok:
+                    headers["Authorization"] = "Bearer " + tok
+            except OSError:
+                pass
+        _backoff = [1, 2, 3, 3, 5, 5]
+        attempt = 0
+        while True:
+            try:
+                req = urllib.request.Request(url, data=b"{}", headers=headers, method="POST")
                 raw = urllib.request.urlopen(req, timeout=8).read()
                 data = _json.loads(raw.decode("utf-8", "replace") or "{}")
                 items = data.get("assembled")
-                if isinstance(items, list):
-                    # apply via the same path as a set_menu command
+                if isinstance(items, list) and items:
                     self.apply({"cmd": "set_menu", "items": items})
                     return
             except Exception:  # noqa: BLE001 — framework still warming; retry
                 pass
-            if _attempt < len(_backoff):
-                _time.sleep(_backoff[_attempt])
+            delay = _backoff[attempt] if attempt < len(_backoff) else 10
+            attempt += 1
+            _time.sleep(delay)
 
     def run(self):
         # Pre-warm the Windows toaster in the background so the FIRST actionable
