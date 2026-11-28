@@ -327,7 +327,7 @@ window.AppUIReady.then(()=>{
       subtitle.textContent=(track.album?track.album+" · ":"")+(Number.isFinite(track.start_sec)?formatTime(track.start_sec)+(Number.isFinite(track.end_sec)?"–"+formatTime(track.end_sec):"")+" · ":"")+bytes(r.bytes)+(streamMode==="direct"?" · Browser-direct Google Drive":" · Pylon proxy");
       message("Buffering audio from Google Drive…");
       if(!restoringSeek)begin();
-    }catch(e){restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Playback unavailable";message(e.message);}
+    }catch(e){restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent=e.message||"Playback unavailable";message(e.message);}
     finally{busy=false;}
   }
   function advance(delta=1,ended=false){
