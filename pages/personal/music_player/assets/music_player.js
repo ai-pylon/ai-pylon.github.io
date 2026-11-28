@@ -489,6 +489,7 @@ window.AppUIReady.then(()=>{
     const savedFolder=restorePlayback();void refreshPlaylists();
     try{
       const r=await api("roots");roots=r.roots;libraryRoot=storageGet("music-player:library")||r.default_url||"vfs://gdrive://root";
+      if(r.direct_client_id&&clientIdInput&&!clientIdInput.value.trim())clientIdInput.value=r.direct_client_id;
       if(!validPath(libraryRoot))libraryRoot=r.default_url;
       if(!roots.some(x=>x.url===libraryRoot))roots.unshift({name:libraryRoot.split("/").at(-1),url:libraryRoot});
       rootInput.value=libraryRoot;renderTree();
