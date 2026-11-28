@@ -307,11 +307,24 @@ window.AppUIReady.then(()=>{
       if(epoch!==playingEpoch){if(selectedMode==="direct")await directClient.release(r.token);else await api("release",{token:r.token});return;}
       streamMode=selectedMode;token=r.token;
       const begin=()=>{if(epoch!==playingEpoch||token!==r.token)return;audio.play().catch(()=>{if(epoch===playingEpoch&&token===r.token)message("Track ready. Press play in the audio controls; your browser may block autoplay or not support this format.");});};
+      const applyTargetSeek=()=>{
+        if(epoch!==playingEpoch||token!==r.token)return;
+        const clamped=Number.isFinite(audio.duration)?Math.min(resumeAt,Math.max(0,audio.duration-.25)):resumeAt;
+        try{if(Math.abs((audio.currentTime||0)-clamped)>1.0)audio.currentTime=clamped;}catch(_){}
+      };
       if(restoringSeek){
-        const seek=()=>{if(epoch!==playingEpoch||token!==r.token)return;try{audio.currentTime=Number.isFinite(audio.duration)?Math.min(resumeAt,Math.max(0,audio.duration-.25)):resumeAt;}catch(_){}restoringSeek=false;savePosition(true);begin();};
-        audio.addEventListener("loadedmetadata",seek,{once:true});
+        const onMeta=()=>{
+          if(epoch!==playingEpoch||token!==r.token)return;
+          applyTargetSeek();
+          audio.addEventListener("canplay",()=>{if(epoch!==playingEpoch||token!==r.token)return;applyTargetSeek();restoringSeek=false;savePosition(true);begin();},{once:true});
+          begin();
+        };
+        audio.addEventListener("loadedmetadata",onMeta,{once:true});
       }
-      audio.src=r.url;subtitle.textContent=bytes(r.bytes)+(streamMode==="direct"?" · Browser-direct Google Drive":" · Pylon proxy");
+      audio.preload="auto";
+      audio.src=r.url;
+      audio.load();
+      subtitle.textContent=(track.album?track.album+" · ":"")+(Number.isFinite(track.start_sec)?formatTime(track.start_sec)+(Number.isFinite(track.end_sec)?"–"+formatTime(track.end_sec):"")+" · ":"")+bytes(r.bytes)+(streamMode==="direct"?" · Browser-direct Google Drive":" · Pylon proxy");
       message("Buffering audio from Google Drive…");
       if(!restoringSeek)begin();
     }catch(e){restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Playback unavailable";message(e.message);}
@@ -435,18 +448,7 @@ window.AppUIReady.then(()=>{
   }
   function content(host){
     body=el("div");body.className="mp-main";host.append(body);
-    const top=el("div");top.className="mp-now";const artwork=el("div","♫");artwork.className="mp-art";
-    const info=el("div");info.className="mp-info";title=el("h1","Music Player");subtitle=el("p","Select a library folder to listen");info.append(title,subtitle);
-    top.append(artwork,info);body.append(top);
-    const controls=el("div");controls.className="mp-controls";
-    audio=el("audio");audio.controls=true;audio.preload="metadata";audio.setAttribute("aria-label","Audio playback");
-    audio.onplaying=()=>message(streamMode==="direct"?"Playing directly from Google Drive (no VM media traffic).":"Playing from Google Drive through Pylon.");audio.onwaiting=()=>{if(token)message("Buffering audio from Google Drive…");};audio.ontimeupdate=()=>{savePosition();if(token&&!busy&&!restoringSeek&&Number.isFinite(current?.end_sec)&&audio.currentTime>=current.end_sec){if(repeat.value==="one"){audio.currentTime=current.start_sec||0;audio.play().catch(()=>{});}else advance(1,true);}};audio.onpause=()=>savePosition(true);audio.onseeked=()=>savePosition(true);audio.onvolumechange=()=>persistQueue();audio.onended=()=>{resumeAt=0;savePosition(true);advance(1,true);};audio.onerror=()=>{if(!audio.getAttribute("src"))return;restoringSeek=false;if(rememberedTrack)resumeButton.hidden=false;message(streamMode==="direct"?"Direct stream interrupted. Reauthorize if needed, then Resume saved playback; no automatic proxy fallback.":"Browser could not decode this audio or playback expired. Try another track.");};
-    repeat=el("select");repeat.setAttribute("aria-label","Repeat");for(const [v,t] of [["off","Repeat off"],["all","Repeat all"],["one","Repeat track"]])repeat.add(new Option(t,v));
-    shuffle=el("input");shuffle.type="checkbox";const sh=el("label","Shuffle ");sh.append(shuffle);
-    repeat.onchange=()=>persistQueue(true);shuffle.onchange=()=>persistQueue(true);resumeButton=btn("Resume saved playback",resumeSaved);resumeButton.hidden=true;
-    controls.append(resumeButton,btn("Previous",()=>advance(-1)),btn("Next",()=>advance(1)),repeat,sh,btn("Stop",async()=>{cancelScan("Folder scan stopped.");if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Stopped · "+formatTime(resumeAt);persistQueue(true);message("Playback copy released.");}));
-    body.append(audio,controls,directPanel());
-    feedback=el("p","Choose a Drive folder in the sidebar.");feedback.className="mp-feedback";feedback.setAttribute("role","status");body.append(feedback);
+    feedback=el("p","Choose a Drive folder in the sidebar.");feedback.className="mp-feedback";feedback.setAttribute("role","status");
     const listPanel=el("section");listPanel.className="mp-panel";listPanel.append(el("h2","Folder files"));
     location=el("p","Google Drive");location.className="mp-path";listPanel.append(location);
     filter=el("input");filter.type="search";filter.placeholder="Filter files & tracks…";filter.setAttribute("aria-label","Filter files");filter.oninput=renderTracks;
@@ -458,18 +460,31 @@ window.AppUIReady.then(()=>{
     scanStatus=el("p","");scanStatus.className="mp-feedback";scanStatus.setAttribute("role","status");scanStatus.id="mp-scan-status";
     trackList=el("div");trackList.className="mp-list";more=btn("Load more",()=>browse(folder,true).catch(()=>{}));more.hidden=true;
     listPanel.append(filter,actions,recursive,scanStatus,trackList,more);
-    body.append(listPanel);renderTracks();
+    body.append(feedback,listPanel);renderTracks();
   }
   function rightQueueSidebar(host){
     const qPanel=el("section");qPanel.className="mp-panel";qPanel.style.cssText="padding:10px;border:0;height:100%;display:flex;flex-direction:column;gap:8px;box-sizing:border-box;overflow-y:auto";
-    const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:6px";
+    const top=el("div");top.className="mp-now";top.style.cssText="display:flex;align-items:center;gap:8px";
+    const artwork=el("div","♫");artwork.className="mp-art";artwork.style.cssText="width:36px;height:36px;font-size:18px;flex:0 0 auto";
+    const info=el("div");info.className="mp-info";info.style.cssText="min-width:0;flex:1";
+    title=el("h1","Music Player");title.style.cssText="font-size:14px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    subtitle=el("p","Select a folder or track to listen");subtitle.style.cssText="font-size:11px;margin:2px 0 0;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
+    info.append(title,subtitle);top.append(artwork,info);
+    audio=el("audio");audio.controls=true;audio.preload="metadata";audio.style.cssText="width:100%";audio.setAttribute("aria-label","Audio playback");
+    audio.onplaying=()=>message(streamMode==="direct"?"Playing directly from Google Drive (no VM media traffic).":"Playing from Google Drive through Pylon.");audio.onwaiting=()=>{if(token)message("Buffering audio from Google Drive…");};audio.ontimeupdate=()=>{savePosition();if(token&&!busy&&!restoringSeek&&Number.isFinite(current?.end_sec)&&audio.currentTime>=current.end_sec){if(repeat.value==="one"){audio.currentTime=current.start_sec||0;audio.play().catch(()=>{});}else advance(1,true);}};audio.onpause=()=>savePosition(true);audio.onseeked=()=>savePosition(true);audio.onvolumechange=()=>persistQueue();audio.onended=()=>{resumeAt=0;savePosition(true);advance(1,true);};audio.onerror=()=>{if(!audio.getAttribute("src"))return;restoringSeek=false;if(rememberedTrack)resumeButton.hidden=false;message(streamMode==="direct"?"Direct stream interrupted. Reauthorize if needed, then Resume saved playback; no automatic proxy fallback.":"Browser could not decode this audio or playback expired. Try another track.");};
+    const controls=el("div");controls.className="mp-controls";controls.style.cssText="display:flex;flex-wrap:wrap;gap:4px;align-items:center";
+    repeat=el("select");repeat.setAttribute("aria-label","Repeat");for(const [v,t] of [["off","Repeat off"],["all","Repeat all"],["one","Repeat track"]])repeat.add(new Option(t,v));
+    shuffle=el("input");shuffle.type="checkbox";const sh=el("label","Shuffle ");sh.append(shuffle);
+    repeat.onchange=()=>persistQueue(true);shuffle.onchange=()=>persistQueue(true);resumeButton=btn("Resume",resumeSaved);resumeButton.hidden=true;
+    controls.append(resumeButton,btn("⏮",()=>advance(-1)),btn("⏭",()=>advance(1)),btn("⏹",async()=>{cancelScan("Folder scan stopped.");if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Stopped · "+formatTime(resumeAt);persistQueue(true);message("Playback copy released.");}),repeat,sh);
+    const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:8px";
     hdr.append(el("h2","Play queue"),btn("Clear queue",async()=>{if(!busy){cancelScan();await dropToken();queue=[];index=-1;current=null;rememberedTrack=null;resumeAt=0;resumeButton.hidden=true;queueDisplay=0;title.textContent="Music Player";subtitle.textContent="Select a library folder to listen";renderTracks();renderQueue();persistQueue(true);}}));
     queueCount=el("p","0 tracks");queueCount.className="mp-path";
     queueList=el("div");queueList.className="mp-list";
-    qPanel.append(hdr,queueCount,queueList,playlistPanel());
+    qPanel.append(top,audio,controls,hdr,queueCount,queueList,playlistPanel(),directPanel());
     host.append(qPanel);renderQueue();
   }
-  AppUI.createApp({id:"personal-music-player",title:"Music Player",leftSidebar:{width:300,tabs:[{id:"library",label:"Library",active:true,render:sidebar}]},rightSidebar:{width:340,title:"Play Queue",tabs:[{id:"music-player-queue",label:"♫ Play Queue",active:true,render:rightQueueSidebar}]},content:{render:content},statusbar:{}});
+  AppUI.createApp({id:"personal-music-player",title:"Music Player",leftSidebar:{width:300,tabs:[{id:"library",label:"Library",active:true,render:sidebar}]},rightSidebar:{width:360,title:"Player & Queue",tabs:[{id:"music-player-queue",label:"♫ Player & Queue",active:true,render:rightQueueSidebar}]},content:{render:content},statusbar:{}});
   async function start(){
     const savedFolder=restorePlayback();void refreshPlaylists();
     try{
