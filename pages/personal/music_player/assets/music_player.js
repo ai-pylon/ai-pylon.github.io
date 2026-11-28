@@ -236,9 +236,22 @@ window.AppUIReady.then(()=>{
   function visibleTracks(){const q=filter.value.trim().toLowerCase();return tracks.filter(t=>t.name.toLowerCase().includes(q));}
   function visibleOtherFiles(){const q=filter.value.trim().toLowerCase();return otherFiles.filter(f=>f.name.toLowerCase().includes(q));}
   function fileRow(f){
-    const r=el("div");r.className="mp-track";r.style.opacity="0.72";
-    const num=el("span","📄");num.className="mp-num";
-    const name=el("span",f.name);name.className="mp-track-name";name.title=f.url;name.style.cursor="default";
+    const r=el("div");r.className="mp-track";
+    const isCue=f.name.toLowerCase().endsWith(".cue");
+    if(!isCue)r.style.opacity="0.72";
+    const num=el("span",isCue?"💿":"📄");num.className="mp-num";
+    let name;
+    if(isCue){
+      name=btn(f.name,()=>{
+        const cueTracks=tracks.filter(t=>t.cue_file===f.name);
+        if(!cueTracks.length){message("No matching audio tracks found for "+f.name);return;}
+        if(busy)return;
+        cancelScan();queue=cueTracks.slice();queueDisplay=0;renderQueue();playIndex(0);
+      });
+      name.className="mp-track-name";name.title="Play CUE album: "+f.name;
+    }else{
+      name=el("span",f.name);name.className="mp-track-name";name.title=f.url;name.style.cursor="default";
+    }
     const meta=el("span",bytes(f.size));meta.className="mp-size";
     r.append(num,name,meta);return r;
   }
