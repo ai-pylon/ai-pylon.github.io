@@ -43,8 +43,10 @@
           '</div>' +
           '<div class="ns-table-wrap" id="ns-peers-table"></div>' +
           '<form class="ns-form" id="ns-peer-form">' +
-            '<label class="ns-field">Peer Name<input name="name" required placeholder="gce-vm"></label>' +
+            '<label class="ns-field">Peer Name<input name="name" required placeholder="vm"></label>' +
             '<label class="ns-field">Base URL<input name="base_url" required placeholder="https://pylon-server.duckdns.org"></label>' +
+            '<label class="ns-field">Admin ID (/_pylon/auth/login)<input name="username" autocomplete="username" placeholder="admin"></label>' +
+            '<label class="ns-field">Admin Password (write-only)<input name="password" type="password" autocomplete="current-password"></label>' +
             '<label class="ns-field">Bearer Token (optional, write-only)<input name="bearer_token" type="password" autocomplete="off"></label>' +
             '<label class="ns-field">Cookie Header (optional, write-only)<input name="cookie" type="password" autocomplete="off"></label>' +
             '<label class="ns-check"><input name="use_auth_http" type="checkbox" checked> Use platform/auth_http</label>' +
@@ -110,6 +112,7 @@
       '<table class="ns-table"><thead><tr><th>Name</th><th>URL</th><th>Auth</th><th>Actions</th></tr></thead><tbody>' +
       peers.map(function (p) {
         var auth = [];
+        if (p.username && p.has_password) auth.push("id/pw (" + p.username + ")");
         if (p.use_auth_http) auth.push("auth_http");
         if (p.has_bearer_token) auth.push("bearer");
         if (p.has_cookie) auth.push("cookie");
@@ -118,7 +121,10 @@
             '<td class="ns-mono">' + esc(p.name) + '</td>' +
             '<td class="ns-mono">' + esc(p.base_url) + '</td>' +
             '<td>' + esc(auth.join(", ") || "none") + '</td>' +
-            '<td><button class="ns-btn danger" data-del-peer="' + esc(p.name) + '" type="button">Delete</button></td>' +
+            '<td>' +
+              '<button class="ns-btn" data-edit-peer="' + esc(p.name) + '" type="button">Edit</button> ' +
+              '<button class="ns-btn danger" data-del-peer="' + esc(p.name) + '" type="button">Delete</button>' +
+            '</td>' +
           '</tr>'
         );
       }).join("") +
@@ -224,6 +230,20 @@
       var root = contentEl;
 
       root.addEventListener("click", async function (ev) {
+        var ed = ev.target.closest("[data-edit-peer]");
+        if (ed) {
+          var ename = ed.getAttribute("data-edit-peer");
+          var peer = ((state.status && state.status.peers) || []).find(function (p) { return p.name === ename; });
+          if (peer) {
+            var form = root.querySelector("#ns-peer-form");
+            form.querySelector('input[name="name"]').value = peer.name || "";
+            form.querySelector('input[name="base_url"]').value = peer.base_url || "";
+            form.querySelector('input[name="username"]').value = peer.username || "";
+            form.querySelector('input[name="use_auth_http"]').checked = !!peer.use_auth_http;
+            form.querySelector('input[name="password"]').focus();
+          }
+          return;
+        }
         var del = ev.target.closest("[data-del-peer]");
         if (del) {
           var name = del.getAttribute("data-del-peer");
@@ -251,9 +271,12 @@
           base_url: fd.get("base_url"),
           use_auth_http: !!ev.target.querySelector('input[name="use_auth_http"]').checked
         };
+        if ((fd.get("username") || "").trim()) body.username = fd.get("username");
+        if ((fd.get("password") || "").trim()) body.password = fd.get("password");
         if ((fd.get("bearer_token") || "").trim()) body.bearer_token = fd.get("bearer_token");
         if ((fd.get("cookie") || "").trim()) body.cookie = fd.get("cookie");
         var res = await callOp("peers_save", body, true);
+        ev.target.querySelector('input[name="password"]').value = "";
         ev.target.querySelector('input[name="bearer_token"]').value = "";
         ev.target.querySelector('input[name="cookie"]').value = "";
         showOut(root, res);
