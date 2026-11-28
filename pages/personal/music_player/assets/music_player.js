@@ -26,9 +26,17 @@ window.AppUIReady.then(()=>{
     history[mode==="replace"?"replaceState":"pushState"](history.state,"",url.href);
   }
   const STORAGE="music-player:playback:v1",POSITION="music-player:position:v1";
+  const trackKey=t=>t?(t.cue_id||t.url||""):"";
   function cleanTrack(t){
     if(!t||!validPath(t.url)||typeof t.name!=="string"||!t.name||t.name.length>1024)return null;
-    return {url:t.url,name:t.name,size:Number.isFinite(t.size)&&t.size>=0?t.size:null};
+    const out={url:t.url,name:t.name,size:Number.isFinite(t.size)&&t.size>=0?t.size:null};
+    if(typeof t.cue_id==="string"&&t.cue_id&&t.cue_id.length<=2200)out.cue_id=t.cue_id;
+    if(Number.isFinite(t.start_sec)&&t.start_sec>=0)out.start_sec=t.start_sec;
+    if(Number.isFinite(t.end_sec)&&t.end_sec>=0)out.end_sec=t.end_sec;
+    if(typeof t.album==="string"&&t.album)out.album=t.album;
+    if(typeof t.performer==="string"&&t.performer)out.performer=t.performer;
+    if(typeof t.cue_file==="string"&&t.cue_file)out.cue_file=t.cue_file;
+    return out;
   }
   function storageGet(key){try{return localStorage.getItem(key);}catch(_){return null;}}
   function saveQueue(){
@@ -150,7 +158,7 @@ window.AppUIReady.then(()=>{
       folder=r.url;nextOffset=r.next_offset;
       const found=r.entries.filter(x=>x.kind==="track");
       tracks=(append?[...tracks,...found]:found).sort((a,b)=>collator.compare(a.name,b.name));
-      tracks=[...new Map(tracks.map(x=>[x.url,x])).values()];
+      tracks=[...new Map(tracks.map(x=>[trackKey(x),x])).values()];
       location.textContent=folder;location.title=folder;
       renderTracks();
       message((tracks.length?tracks.length+" audio tracks. ":"No audio files at this level. Select a folder in the tree. ")+(r.ambiguous?"Duplicate names omitted. ":"")+(nextOffset!==null?"More entries available. ":"")+(r.checked_at?"Drive checked "+new Date(r.checked_at*1000).toLocaleTimeString():""));
@@ -211,12 +219,13 @@ window.AppUIReady.then(()=>{
   }
   function row(track,i,isQueue=false){
     const r=el("div");r.className="mp-track";
-    if(current?.url===track.url)r.classList.add("mp-current");
+    if(trackKey(current)===trackKey(track))r.classList.add("mp-current");
     const num=el("span",String(i+1).padStart(2,"0"));num.className="mp-num";
-    const name=btn(track.name,()=>{if(isQueue)playIndex(i);else if(!busy){cancelScan();queue=visibleTracks().slice();queueDisplay=0;playIndex(queue.findIndex(x=>x.url===track.url));}});
-    name.className="mp-track-name";name.title=track.url;name.setAttribute("aria-label",track.name);
-    if(isQueue){const parent=el("small",track.url.split("/").slice(-2,-1)[0]||"");parent.className="mp-track-parent";name.append(parent);}
-    const meta=el("span",bytes(track.size));meta.className="mp-size";
+    const name=btn(track.name,()=>{if(isQueue)playIndex(i);else if(!busy){cancelScan();queue=visibleTracks().slice();queueDisplay=0;playIndex(queue.findIndex(x=>trackKey(x)===trackKey(track)));}});
+    name.className="mp-track-name";name.title=track.cue_id||track.url;name.setAttribute("aria-label",track.name);
+    if(isQueue){const parent=el("small",track.album||track.url.split("/").slice(-2,-1)[0]||"");parent.className="mp-track-parent";name.append(parent);}
+    const dur=(Number.isFinite(track.start_sec)&&Number.isFinite(track.end_sec)&&track.end_sec>track.start_sec)?formatTime(track.end_sec-track.start_sec):bytes(track.size);
+    const meta=el("span",dur);meta.className="mp-size";
     const action=btn(isQueue?"Remove":"＋",()=>{if(busy)return;if(isQueue){queue.splice(i,1);if(i<index)index--;else if(i===index)index=i-1;}else if(queue.length<MAX_QUEUE)queue.push(track);else message("Queue limit reached.");renderQueue();});
     action.setAttribute("aria-label",(isQueue?"Remove ":"Add to queue ")+track.name);
     r.append(num,name,meta,action);return r;
@@ -247,8 +256,19 @@ window.AppUIReady.then(()=>{
     if(busy){message("A track is still preparing from Drive.");return;}
     if(i<0||i>=queue.length)return;
     busy=true;const epoch=++playingEpoch;const track=queue[i];index=i;queueDisplay=Math.floor(i/200)*200;
+    const targetPos=position>0?position:(Number.isFinite(track.start_sec)?track.start_sec:0);
     try{
-      await dropToken();if(epoch!==playingEpoch)return;current=track;rememberedTrack=track;resumeAt=Math.max(0,position||0);restoringSeek=resumeAt>0;try{localStorage.setItem(POSITION,JSON.stringify({url:track.url,seconds:resumeAt}));}catch(_){}resumeButton.hidden=true;title.textContent=track.name;subtitle.textContent="Opening Google Drive stream…";renderTracks();renderQueue();persistQueue(true);
+      if(token&&current?.url===track.url&&audio.readyState>=1&&Number.isFinite(track.start_sec)){
+        current=track;rememberedTrack=track;resumeAt=targetPos;restoringSeek=false;
+        try{localStorage.setItem(POSITION,JSON.stringify({url:track.url,seconds:resumeAt}));}catch(_){}
+        resumeButton.hidden=true;title.textContent=track.name;
+        subtitle.textContent=(track.album?track.album+" · ":"")+formatTime(track.start_sec)+(Number.isFinite(track.end_sec)?"–"+formatTime(track.end_sec):"");
+        renderTracks();renderQueue();persistQueue(true);
+        try{audio.currentTime=Number.isFinite(audio.duration)?Math.min(targetPos,Math.max(0,audio.duration-.25)):targetPos;}catch(_){}
+        audio.play().catch(()=>{});
+        return;
+      }
+      await dropToken();if(epoch!==playingEpoch)return;current=track;rememberedTrack=track;resumeAt=Math.max(0,targetPos||0);restoringSeek=resumeAt>0;try{localStorage.setItem(POSITION,JSON.stringify({url:track.url,seconds:resumeAt}));}catch(_){}resumeButton.hidden=true;title.textContent=track.name;subtitle.textContent="Opening Google Drive stream…";renderTracks();renderQueue();persistQueue(true);
       message("Resolving track through VFS…");
       const selectedMode=directMode?"direct":"proxy";
       let r;
@@ -274,7 +294,7 @@ window.AppUIReady.then(()=>{
   function advance(delta=1,ended=false){
     if(busy){message("A track is still preparing from Drive.");return;}
     if(!queue.length)return;
-    if(ended&&repeat.value==="one"){audio.currentTime=0;audio.play().catch(()=>{});return;}
+    if(ended&&repeat.value==="one"){audio.currentTime=Number.isFinite(current?.start_sec)?current.start_sec:0;audio.play().catch(()=>{});return;}
     let n=index+delta;
     if(!scanning&&shuffle.checked&&queue.length>1&&delta>0){do{n=Math.floor(Math.random()*queue.length);}while(n===index);}
     if(n>=queue.length&&scanning&&delta>0){waitingNext=true;message("Waiting for more subfolder tracks…");return;}
@@ -394,7 +414,7 @@ window.AppUIReady.then(()=>{
     top.append(artwork,info);body.append(top);
     const controls=el("div");controls.className="mp-controls";
     audio=el("audio");audio.controls=true;audio.preload="metadata";audio.setAttribute("aria-label","Audio playback");
-    audio.onplaying=()=>message(streamMode==="direct"?"Playing directly from Google Drive (no VM media traffic).":"Playing from Google Drive through Pylon.");audio.onwaiting=()=>{if(token)message("Buffering audio from Google Drive…");};audio.ontimeupdate=()=>savePosition();audio.onpause=()=>savePosition(true);audio.onseeked=()=>savePosition(true);audio.onvolumechange=()=>persistQueue();audio.onended=()=>{resumeAt=0;savePosition(true);advance(1,true);};audio.onerror=()=>{if(!audio.getAttribute("src"))return;restoringSeek=false;if(rememberedTrack)resumeButton.hidden=false;message(streamMode==="direct"?"Direct stream interrupted. Reauthorize if needed, then Resume saved playback; no automatic proxy fallback.":"Browser could not decode this audio or playback expired. Try another track.");};
+    audio.onplaying=()=>message(streamMode==="direct"?"Playing directly from Google Drive (no VM media traffic).":"Playing from Google Drive through Pylon.");audio.onwaiting=()=>{if(token)message("Buffering audio from Google Drive…");};audio.ontimeupdate=()=>{savePosition();if(token&&!busy&&!restoringSeek&&Number.isFinite(current?.end_sec)&&audio.currentTime>=current.end_sec){if(repeat.value==="one"){audio.currentTime=current.start_sec||0;audio.play().catch(()=>{});}else advance(1,true);}};audio.onpause=()=>savePosition(true);audio.onseeked=()=>savePosition(true);audio.onvolumechange=()=>persistQueue();audio.onended=()=>{resumeAt=0;savePosition(true);advance(1,true);};audio.onerror=()=>{if(!audio.getAttribute("src"))return;restoringSeek=false;if(rememberedTrack)resumeButton.hidden=false;message(streamMode==="direct"?"Direct stream interrupted. Reauthorize if needed, then Resume saved playback; no automatic proxy fallback.":"Browser could not decode this audio or playback expired. Try another track.");};
     repeat=el("select");repeat.setAttribute("aria-label","Repeat");for(const [v,t] of [["off","Repeat off"],["all","Repeat all"],["one","Repeat track"]])repeat.add(new Option(t,v));
     shuffle=el("input");shuffle.type="checkbox";const sh=el("label","Shuffle ");sh.append(shuffle);
     repeat.onchange=()=>persistQueue(true);shuffle.onchange=()=>persistQueue(true);resumeButton=btn("Resume saved playback",resumeSaved);resumeButton.hidden=true;
