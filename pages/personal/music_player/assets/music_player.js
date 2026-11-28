@@ -10,7 +10,7 @@ window.AppUIReady.then(()=>{
   let tree,body,roots=[],tracks=[],otherFiles=[],queue=[],index=-1,current=null,token=null,busy=false,folderEpoch=0,folder="",folderLoading=false,nextOffset=null,playingEpoch=0,treeEpoch=0,scanEpoch=0,scanning=false,waitingNext=false;
   const MAX_SCAN_FOLDERS=512,MAX_QUEUE=5000;
   let scanStatus,cancelScanButton,queueCount,queueDisplay=0;
-  let directClient=null,directMode=false,streamMode="proxy",directFeedback,directToggle,authorizeButton,clientIdInput;
+  let directClient=null,directMode=true,streamMode="proxy",directFeedback,directToggle,authorizeButton,quickAuthButton,clientIdInput;
   let libraryRoot="",resumeButton,resumeAt=0,rememberedTrack=null,hydrated=false,restoringSeek=false,lastSave=0,saveTimer=null,restoreNotice="";
   let audio,trackList,queueList,title,subtitle,feedback,location,filter,repeat,shuffle,more,rootInput;
   const collator=new Intl.Collator(undefined,{numeric:true,sensitivity:"base"});
@@ -412,12 +412,9 @@ window.AppUIReady.then(()=>{
     const panel=el("section");panel.className="mp-direct";
     panel.append(el("h2","Playback transport"));
     const mode=el("select");mode.setAttribute("aria-label","Playback transport");
-    mode.add(new Option("VM proxy (default)","proxy"));mode.add(new Option("Browser-direct Google Drive","direct"));
-    // Browser-direct OAuth tokens are ephemeral (in-memory only), so always start
-    // in VM proxy mode on page load instead of blocking playback with an expired direct session.
-    directMode=false;mode.value="proxy";
-    try{localStorage.setItem("music-player:transport","proxy");}catch(_){}
-    const config=el("div");config.className="mp-direct-config";config.hidden=true;
+    mode.add(new Option("Browser-direct Google Drive (default)","direct"));mode.add(new Option("VM proxy","proxy"));
+    directMode=storageGet("music-player:transport")!=="proxy";mode.value=directMode?"direct":"proxy";
+    const config=el("div");config.className="mp-direct-config";config.hidden=!directMode;
     const description=el("p","Direct playback uses a separate read-only Google authorization in this browser. No server access token is shared.");
     clientIdInput=el("input");clientIdInput.setAttribute("aria-label","Google Web OAuth client ID");clientIdInput.placeholder="Web application OAuth client ID";
     clientIdInput.value=storageGet("music-player:direct-client-id")||"";
@@ -433,16 +430,18 @@ window.AppUIReady.then(()=>{
       }catch(e){directFeedback.textContent=e.message;}finally{setup.disabled=false;}
     });
     authorizeButton=btn("Authorize Google",()=>{try{directClient.authorize();}catch(e){directFeedback.textContent=e.message;}});authorizeButton.disabled=true;
+    const syncAuthBtn=()=>{if(quickAuthButton)quickAuthButton.hidden=!directMode||Boolean(directClient?.connected());};
     const disconnect=btn("Disconnect Google",async()=>{
       if(streamMode==="direct"){if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Direct connection disconnected";}
-      await directClient?.disconnect();authorizeButton.disabled=false;
+      await directClient?.disconnect();authorizeButton.disabled=false;syncAuthBtn();
     });
-    try{directClient=window.VFSDriveDirect.create({scope:"/apps/personal/music_player/",worker:"/apps/personal/music_player/direct-worker.js",onStatus:s=>{directFeedback.textContent=s;}});}catch(_){mode.options[1].disabled=true;if(directMode)directFeedback.textContent="Browser-direct unavailable; explicitly select VM proxy to play.";}
+    try{directClient=window.VFSDriveDirect.create({scope:"/apps/personal/music_player/",worker:"/apps/personal/music_player/direct-worker.js",onStatus:s=>{directFeedback.textContent=s;syncAuthBtn();}});}catch(_){mode.options[0].disabled=true;if(directMode)directFeedback.textContent="Browser-direct unavailable; explicitly select VM proxy to play.";}
     mode.onchange=async()=>{
       directMode=mode.value==="direct";config.hidden=!directMode;try{localStorage.setItem("music-player:transport",mode.value);}catch(_){}
       if(busy)playingEpoch++;
       if(token||busy){await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Transport changed · resume playback";}
       if(!directMode)await directClient?.disconnect();
+      syncAuthBtn();
     };
     const buttons=el("div");buttons.className="mp-actions";buttons.append(setup,authorizeButton,disconnect);
     config.append(description,clientIdInput,buttons,directFeedback);
@@ -479,7 +478,8 @@ window.AppUIReady.then(()=>{
     repeat=el("select");repeat.setAttribute("aria-label","Repeat");for(const [v,t] of [["off","Repeat off"],["all","Repeat all"],["one","Repeat track"]])repeat.add(new Option(t,v));
     shuffle=el("input");shuffle.type="checkbox";const sh=el("label","Shuffle ");sh.append(shuffle);
     repeat.onchange=()=>persistQueue(true);shuffle.onchange=()=>persistQueue(true);resumeButton=btn("Resume",resumeSaved);resumeButton.hidden=true;
-    controls.append(resumeButton,btn("⏮",()=>advance(-1)),btn("⏭",()=>advance(1)),btn("⏹",async()=>{cancelScan("Folder scan stopped.");if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Stopped · "+formatTime(resumeAt);persistQueue(true);message("Playback copy released.");}),repeat,sh);
+    quickAuthButton=btn("Authorize Google",()=>{try{directClient?.authorize();}catch(e){message(e.message);if(directFeedback)directFeedback.textContent=e.message;}});quickAuthButton.disabled=true;quickAuthButton.hidden=!directMode;
+    controls.append(quickAuthButton,resumeButton,btn("⏮",()=>advance(-1)),btn("⏭",()=>advance(1)),btn("⏹",async()=>{cancelScan("Folder scan stopped.");if(busy)playingEpoch++;await dropToken();restoringSeek=false;resumeButton.hidden=!rememberedTrack;subtitle.textContent="Stopped · "+formatTime(resumeAt);persistQueue(true);message("Playback copy released.");}),repeat,sh);
     const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:6px;border-top:1px solid var(--border);padding-top:8px";
     hdr.append(el("h2","Play queue"),btn("Clear queue",async()=>{if(!busy){cancelScan();await dropToken();queue=[];index=-1;current=null;rememberedTrack=null;resumeAt=0;resumeButton.hidden=true;queueDisplay=0;title.textContent="Music Player";subtitle.textContent="Select a library folder to listen";renderTracks();renderQueue();persistQueue(true);}}));
     queueCount=el("p","0 tracks");queueCount.className="mp-path";
@@ -494,6 +494,13 @@ window.AppUIReady.then(()=>{
     try{
       const r=await api("roots");roots=r.roots;libraryRoot=storageGet("music-player:library")||r.default_url||"vfs://gdrive://root";
       if(r.direct_client_id&&clientIdInput){clientIdInput.value=r.direct_client_id;try{localStorage.setItem("music-player:direct-client-id",r.direct_client_id);}catch(_){}}
+      const autoCid=(clientIdInput?.value||"").trim();
+      if(directClient&&autoCid){
+        directClient.setup(autoCid).then(()=>{
+          if(authorizeButton)authorizeButton.disabled=false;
+          if(quickAuthButton){quickAuthButton.disabled=false;quickAuthButton.hidden=!directMode||Boolean(directClient.connected());}
+        }).catch(e=>{if(directFeedback)directFeedback.textContent=e.message;});
+      }
       if(!validPath(libraryRoot))libraryRoot=r.default_url;
       if(!roots.some(x=>x.url===libraryRoot))roots.unshift({name:libraryRoot.split("/").at(-1),url:libraryRoot});
       rootInput.value=libraryRoot;renderTree();
